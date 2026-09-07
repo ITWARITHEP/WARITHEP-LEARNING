@@ -1,316 +1,167 @@
 import Link from "next/link";
 
-const departments = [
-  {
-    id: 1,
-    name: "ฝ่ายสำนักบริหารกลาง",
-    icon: "🏢",
-  },
-  {
-    id: 2,
-    name: "ฝ่ายบริหารทรัพยากรมนุษย์",
-    icon: "👥",
-  },
-  {
-    id: 3,
-    name: "ฝ่ายพัฒนาทรัพยากรมนุษย์และการสื่อสาร",
-    icon: "🎓",
-  },
-  {
-    id: 4,
-    name: "ฝ่ายจัดซื้อจัดจ้าง",
-    icon: "🛒",
-  },
-  {
-    id: 5,
-    name: "ฝ่ายวิศวกรรม",
-    icon: "⚙️",
-  },
-  {
-    id: 6,
-    name: "ฝ่ายคลังสินค้า",
-    icon: "📦",
-  },
-  {
-    id: 7,
-    name: "ฝ่ายการขายและการตลาด",
-    icon: "📈",
-  },
-  {
-    id: 8,
-    name: "ฝ่ายการเงิน",
-    icon: "💳",
-  },
-  {
-    id: 9,
-    name: "ฝ่ายบัญชี",
-    icon: "🧾",
-  },
-  {
-    id: 10,
-    name: "ฝ่ายการภาษี",
-    icon: "📑",
-  },
-  {
-    id: 11,
-    name: "ฝ่ายเทคโนโลยีสารสนเทศ",
-    icon: "💻",
-  },
-  {
-    id: 12,
-    name: "ฝ่ายตรวจสอบภายใน",
-    icon: "🔎",
-  },
-  {
-    id: 13,
-    name: "ฝ่ายบริหารโครงการ",
-    icon: "📋",
-  },
-];
-
-export default function Home() {
+export default function HomePage() {
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
-
+    <main className="min-h-screen bg-white text-slate-900">
       {/* HEADER */}
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-
+      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3 sm:px-6">
           <Link href="/" className="flex items-center gap-3">
-
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-2xl">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-xl shadow-sm">
               🎓
             </div>
 
             <div>
-              <div className="font-black text-slate-900">
+              <div className="text-sm font-black text-slate-900 sm:text-base">
                 วารีเทพ
               </div>
 
-              <div className="text-xs font-bold tracking-widest text-blue-600">
+              <div className="text-[9px] font-black tracking-[0.25em] text-blue-600 sm:text-[10px]">
                 LEARNING
               </div>
             </div>
-
           </Link>
 
-          <div className="flex items-center gap-2">
-
+          <div className="flex items-center gap-2 sm:gap-3">
             <Link
               href="/login"
-              className="rounded-xl px-4 py-2 font-semibold text-slate-700 hover:bg-slate-100"
+              className="rounded-xl px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-100 sm:px-4 sm:text-sm"
             >
               เข้าสู่ระบบ
             </Link>
 
             <Link
               href="/register"
-              className="rounded-xl bg-blue-600 px-5 py-2.5 font-bold text-white shadow-lg shadow-blue-200 hover:bg-blue-700"
+              className="rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 sm:px-5 sm:text-sm"
             >
               สมัครสมาชิก
             </Link>
-
           </div>
-
         </div>
       </header>
 
       {/* HERO */}
-      <section className="bg-white">
+      <section className="relative overflow-hidden bg-gradient-to-b from-white via-blue-50/40 to-white">
+        {/* Ice Watermark */}
+        <div className="pointer-events-none absolute -right-20 top-0 select-none text-[280px] font-black leading-none text-blue-50/70">
+          ❄
+        </div>
 
-        <div className="mx-auto max-w-7xl px-6 py-20">
+        <div className="pointer-events-none absolute -left-24 bottom-0 select-none text-[240px] font-black leading-none text-blue-50/50">
+          ❄
+        </div>
 
-          <div className="max-w-4xl">
-
-            <div className="mb-5 inline-block rounded-full bg-blue-50 px-4 py-2 text-sm font-bold text-blue-600">
-              🎓 ห้องเรียนออนไลน์วารีเทพ
+        <div className="relative mx-auto flex min-h-[calc(100vh-65px)] max-w-6xl items-center px-5 py-16 sm:px-6 lg:py-20">
+          <div className="w-full text-center">
+            {/* Badge */}
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white px-4 py-2 text-xs font-bold text-blue-600 shadow-sm">
+              🎓 ศูนย์การเรียนรู้ออนไลน์สำหรับพนักงานวารีเทพ
             </div>
 
-            <h1 className="text-4xl font-black leading-tight md:text-6xl">
-              เรียนรู้{" "}
-              <span className="text-blue-600">
-                พัฒนาตัวเอง
-              </span>{" "}
+            {/* Heading */}
+            <h1 className="mx-auto max-w-4xl text-4xl font-black leading-tight tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
+              เรียนรู้
+              <span className="text-blue-600"> พัฒนาตน </span>
+              
+              <br className="hidden sm:block" />
               และเติบโตไปพร้อมกัน
             </h1>
 
-            <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-500">
-              ศูนย์กลางการเรียนรู้ออนไลน์สำหรับพนักงานวารีเทพ
-              รวมวิดีโอสอนงาน หลักสูตร แบบทดสอบ คะแนน
-              และอันดับประจำเดือนไว้ในที่เดียว
+            {/* Description */}
+            <p className="mx-auto mt-6 max-w-2xl text-sm leading-7 text-slate-500 sm:text-base sm:leading-8">
+              ศูนย์กลางการเรียนรู้และพัฒนาศักยภาพบุคลากร
+              <br className="hidden sm:block" />
+              รวมวิดีโอสอนงาน หลักสูตร แบบทดสอบ และระบบติดตามการเรียนรู้
             </p>
 
-            <div className="mt-8 flex flex-wrap gap-4">
-
+            {/* CTA */}
+            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
                 href="/register"
-                className="rounded-xl bg-blue-600 px-7 py-4 font-bold text-white shadow-lg shadow-blue-200 hover:bg-blue-700"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-7 py-4 text-sm font-black text-white shadow-xl shadow-blue-200 transition hover:-translate-y-0.5 hover:bg-blue-700 sm:w-auto"
               >
-                🚀 เริ่มเรียนรู้
+                🚀 สมัครสมาชิก
               </Link>
 
               <Link
-                href="/departments"
-                className="rounded-xl border border-slate-200 bg-white px-7 py-4 font-bold text-slate-700 hover:border-blue-300 hover:text-blue-600"
+                href="/login"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-7 py-4 text-sm font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 sm:w-auto"
               >
-                ดูห้องเรียน
+                🔐 เข้าสู่ระบบ
               </Link>
-
             </div>
 
-          </div>
-
-        </div>
-
-      </section>
-
-      {/* STAT */}
-      <section className="mx-auto max-w-7xl px-6 py-10">
-
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-            <div className="text-3xl">
-              🏢
-            </div>
-
-            <div className="mt-2 text-3xl font-black">
-              13
-            </div>
-
-            <div className="text-sm text-slate-500">
-              ฝ่ายสำนักงานใหญ่
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-            <div className="text-3xl">
-              📚
-            </div>
-
-            <div className="mt-2 text-3xl font-black">
-              120+
-            </div>
-
-            <div className="text-sm text-slate-500">
-              หลักสูตร
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-            <div className="text-3xl">
-              🎬
-            </div>
-
-            <div className="mt-2 text-3xl font-black">
-              500+
-            </div>
-
-            <div className="text-sm text-slate-500">
-              วิดีโอ
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-            <div className="text-3xl">
-              👥
-            </div>
-
-            <div className="mt-2 text-3xl font-black">
-              1,000+
-            </div>
-
-            <div className="text-sm text-slate-500">
-              สมาชิก
-            </div>
-          </div>
-
-        </div>
-
-      </section>
-
-      {/* DEPARTMENTS */}
-      <section className="mx-auto max-w-7xl px-6 pb-20">
-
-        <div className="mb-8">
-
-          <p className="font-bold text-blue-600">
-            LEARNING CENTER
-          </p>
-
-          <h2 className="mt-2 text-3xl font-black">
-            ห้องเรียน 13 ฝ่าย
-          </h2>
-
-          <p className="mt-2 text-slate-500">
-            เลือกฝ่ายที่ต้องการเรียนรู้
-          </p>
-
-        </div>
-
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-
-          {departments.map((department) => (
-
-            <Link
-              key={department.id}
-              href={"/departments/" + department.id}
-              className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-blue-300 hover:shadow-lg"
-            >
-
-              {/* ICON + NUMBER */}
-              <div className="flex items-start justify-between">
-
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-3xl">
-                  {department.icon}
-                </div>
-
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-xs font-black text-slate-500">
-                  {String(department.id).padStart(2, "0")}
-                </div>
-
+            {/* Access Notice */}
+            <div className="mx-auto mt-10 max-w-xl rounded-2xl border border-blue-100 bg-blue-50/70 px-5 py-4">
+              <div className="flex items-center justify-center gap-2 text-sm font-black text-slate-800">
+                🔒 สำหรับสมาชิกวารีเทพ
               </div>
 
-              {/* NAME */}
-              <h3 className="mt-6 min-h-[58px] text-lg font-black leading-7 text-slate-900">
-                {department.name}
-              </h3>
-
-              {/* DESCRIPTION */}
-              <p className="mt-2 text-sm text-slate-400">
-                หลักสูตรการเรียนรู้
+              <p className="mt-1 text-xs leading-6 text-slate-500">
+                กรุณาสมัครสมาชิกและเข้าสู่ระบบก่อนเริ่มใช้งานห้องเรียน
               </p>
+            </div>
 
-              {/* LINK */}
-              <div className="mt-5 font-bold text-blue-600 transition group-hover:translate-x-1">
-                เข้าสู่ห้องเรียน →
+            {/* Feature Preview */}
+            <div className="mx-auto mt-14 grid max-w-4xl gap-4 sm:grid-cols-3">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-2xl">
+                  📚
+                </div>
+
+                <h3 className="mt-4 font-black text-slate-900">
+                  ห้องเรียนออนไลน์
+                </h3>
+
+                <p className="mt-2 text-xs leading-6 text-slate-500">
+                  เรียนรู้จากวิดีโอสอนงานของแต่ละฝ่าย
+                </p>
               </div>
 
-            </Link>
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-2xl">
+                  🎬
+                </div>
 
-          ))}
+                <h3 className="mt-4 font-black text-slate-900">
+                  วิดีโอการเรียนรู้
+                </h3>
 
+                <p className="mt-2 text-xs leading-6 text-slate-500">
+                  เรียนจากวิดีโออบรมและสื่อการเรียนรู้
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-2xl">
+                  🏆
+                </div>
+
+                <h3 className="mt-4 font-black text-slate-900">
+                  พัฒนาตัวเอง
+                </h3>
+
+                <p className="mt-2 text-xs leading-6 text-slate-500">
+                  ติดตามผลการเรียนและพัฒนาศักยภาพของคุณ
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
-
       </section>
 
       {/* FOOTER */}
       <footer className="border-t border-slate-200 bg-white">
-
-        <div className="mx-auto max-w-7xl px-6 py-8 text-center">
-
-          <div className="font-black text-slate-800">
+        <div className="mx-auto max-w-7xl px-5 py-7 text-center">
+          <div className="text-sm font-black text-slate-800">
             🎓 วารีเทพ Learning
           </div>
 
-          <p className="mt-2 text-sm text-slate-400">
+          <p className="mt-1 text-xs text-slate-400">
             Learning • Training • Development
           </p>
-
         </div>
-
       </footer>
-
     </main>
   );
 }
