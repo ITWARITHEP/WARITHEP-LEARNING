@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 const departments = [
   "ฝ่ายสำนักบริหารกลาง",
@@ -104,12 +105,16 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(
+    event: React.FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
 
     setError("");
 
-    if (!name.trim()) {
+    const cleanName = name.trim();
+
+    if (!cleanName) {
       setError("กรุณากรอกชื่อ-นามสกุล");
       return;
     }
@@ -144,33 +149,115 @@ export default function RegisterPage() {
       return;
     }
 
-    setLoading(true);
+    if (loading) return;
 
-    /*
-      ตอนนี้ยังไม่เชื่อม Supabase
-      เพื่อทดสอบระบบหน้าเว็บก่อน
-    */
+    try {
+      setLoading(true);
 
-    const member = {
-      name: name.trim(),
-      position,
-      branch,
-      department,
-    };
+      // ==========================================
+      // ตรวจสอบสมาชิกซ้ำ
+      // ใช้ชื่อ + สาขา เป็นตัวตรวจสอบ
+      // ==========================================
 
-    localStorage.setItem(
-      "warithep_learning_member",
-      JSON.stringify(member)
-    );
+      const { data: existingMember, error: checkError } =
+        await supabase
+          .from("members")
+          .select("id, name, branch")
+          .eq("name", cleanName)
+          .eq("branch", branch)
+          .maybeSingle();
 
-    /*
-      ใช้ setTimeout เล็กน้อยเพื่อให้ปุ่มแสดงสถานะ
-      แล้วเปลี่ยนหน้าไป Dashboard
-    */
+      if (checkError) {
+        console.error("CHECK MEMBER ERROR:", checkError);
 
-    setTimeout(() => {
+        setError(
+          "ไม่สามารถตรวจสอบข้อมูลสมาชิกได้\n" +
+            checkError.message
+        );
+
+        return;
+      }
+
+      if (existingMember) {
+        setError(
+          "สมาชิกนี้มีอยู่ในระบบแล้ว\n\n" +
+            "ชื่อ: " +
+            existingMember.name +
+            "\n" +
+            "สาขา: " +
+            existingMember.branch
+        );
+
+        return;
+      }
+
+      // ==========================================
+      // บันทึกสมาชิกลง Supabase
+      // ==========================================
+
+      const { data: newMember, error: insertError } =
+        await supabase
+          .from("members")
+          .insert({
+            name: cleanName,
+            position,
+            branch,
+            department,
+            password,
+          })
+          .select(
+            "id, name, position, branch, department"
+          )
+          .single();
+
+      if (insertError) {
+        console.error("INSERT MEMBER ERROR:", insertError);
+
+        setError(
+          "ไม่สามารถบันทึกสมาชิกได้\n\n" +
+            insertError.message
+        );
+
+        return;
+      }
+
+      if (!newMember) {
+        setError("ไม่พบข้อมูลสมาชิกหลังจากบันทึก");
+        return;
+      }
+
+      // ==========================================
+      // เก็บข้อมูลสมาชิกสำหรับ Session หน้าเว็บ
+      // ไม่เก็บ password ลง localStorage
+      // ==========================================
+
+      const memberSession = {
+        id: newMember.id,
+        name: newMember.name,
+        position: newMember.position,
+        branch: newMember.branch,
+        department: newMember.department,
+      };
+
+      localStorage.setItem(
+        "warithep_learning_member",
+        JSON.stringify(memberSession)
+      );
+
+      // ==========================================
+      // ไป Dashboard
+      // ==========================================
+
       router.push("/dashboard");
-    }, 300);
+    } catch (err) {
+      console.error("REGISTER ERROR:", err);
+
+      setError(
+        "เกิดข้อผิดพลาดในการสมัครสมาชิก กรุณาลองใหม่อีกครั้ง"
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -178,7 +265,6 @@ export default function RegisterPage() {
 
       {/* HEADER */}
       <header className="border-b border-slate-200 bg-white">
-
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
 
           <Link href="/" className="flex items-center gap-3">
@@ -207,7 +293,6 @@ export default function RegisterPage() {
           </Link>
 
         </div>
-
       </header>
 
       {/* CONTENT */}
@@ -239,7 +324,10 @@ export default function RegisterPage() {
           {/* FORM CARD */}
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/50 md:p-8">
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form
+              onSubmit={handleSubmit}
+              className="space-y-5"
+            >
 
               {/* NAME */}
               <div>
@@ -354,16 +442,24 @@ export default function RegisterPage() {
                 <div className="relative">
 
                   <input
-                    type={showPassword ? "text" : "password"}
+                    type={
+                      showPassword
+                        ? "text"
+                        : "password"
+                    }
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) =>
+                      setPassword(e.target.value)
+                    }
                     placeholder="อย่างน้อย 6 ตัวอักษร"
                     className="w-full rounded-2xl border border-slate-200 px-4 py-3.5 pr-14 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
                   />
 
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() =>
+                      setShowPassword(!showPassword)
+                    }
                     className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-lg"
                   >
                     {showPassword ? "🙈" : "👁️"}
@@ -384,9 +480,15 @@ export default function RegisterPage() {
                 <div className="relative">
 
                   <input
-                    type={showConfirmPassword ? "text" : "password"}
+                    type={
+                      showConfirmPassword
+                        ? "text"
+                        : "password"
+                    }
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={(e) =>
+                      setConfirmPassword(e.target.value)
+                    }
                     placeholder="กรอกรหัสผ่านอีกครั้ง"
                     className="w-full rounded-2xl border border-slate-200 px-4 py-3.5 pr-14 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
                   />
@@ -394,11 +496,15 @@ export default function RegisterPage() {
                   <button
                     type="button"
                     onClick={() =>
-                      setShowConfirmPassword(!showConfirmPassword)
+                      setShowConfirmPassword(
+                        !showConfirmPassword
+                      )
                     }
                     className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-lg"
                   >
-                    {showConfirmPassword ? "🙈" : "👁️"}
+                    {showConfirmPassword
+                      ? "🙈"
+                      : "👁️"}
                   </button>
 
                 </div>
@@ -407,7 +513,7 @@ export default function RegisterPage() {
 
               {/* ERROR */}
               {error && (
-                <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+                <div className="whitespace-pre-line rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
                   ⚠️ {error}
                 </div>
               )}
@@ -418,7 +524,9 @@ export default function RegisterPage() {
                 disabled={loading}
                 className="w-full rounded-2xl bg-blue-600 px-5 py-4 font-black text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loading ? "กำลังเข้าสู่ห้องเรียน..." : "สมัครสมาชิก →"}
+                {loading
+                  ? "กำลังบันทึกข้อมูล..."
+                  : "สมัครสมาชิก →"}
               </button>
 
             </form>
@@ -442,7 +550,7 @@ export default function RegisterPage() {
           </div>
 
           <p className="mt-6 text-center text-xs text-slate-400">
-            ระบบกำลังอยู่ในขั้นตอนเตรียมเชื่อมต่อฐานข้อมูล Supabase
+            ข้อมูลสมาชิกจะถูกบันทึกเข้าสู่ระบบ วารีเทพ Learning
           </p>
 
         </div>

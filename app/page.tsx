@@ -1,167 +1,356 @@
-import Link from "next/link";
+"use client";
 
-export default function HomePage() {
+import Link from "next/link";
+import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+
+type Member = {
+  id: string;
+  name: string;
+  position: string;
+  branch: string;
+  department: string;
+};
+
+export default function LoginPage() {
+  const router = useRouter();
+
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [showPassword, setShowPassword] = useState(false);
+
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleLogin(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
+    setError("");
+
+    const cleanName = name.trim();
+
+    // ==============================
+    // ตรวจสอบข้อมูลเบื้องต้น
+    // ==============================
+
+    if (!cleanName) {
+      setError("กรุณากรอกชื่อ-นามสกุล");
+      return;
+    }
+
+    if (!password) {
+      setError("กรุณากรอกรหัสผ่าน");
+      return;
+    }
+
+    if (loading) return;
+
+    try {
+      setLoading(true);
+
+      // ==============================
+      // ล้าง Session เดิม
+      // ==============================
+
+      localStorage.removeItem(
+        "warithep_learning_member"
+      );
+
+      // ==============================
+      // ตรวจสอบสมาชิกจาก Supabase
+      // ==============================
+
+      const { data: member, error: loginError } =
+        await supabase
+          .from("members")
+          .select(
+            "id, name, position, branch, department"
+          )
+          .eq("name", cleanName)
+          .eq("password", password)
+          .limit(1)
+          .maybeSingle();
+
+      console.log("LOGIN RESULT:", member);
+      console.log("LOGIN ERROR:", loginError);
+
+      // ==============================
+      // Supabase Error
+      // ==============================
+
+      if (loginError) {
+        console.error(
+          "SUPABASE LOGIN ERROR:",
+          loginError
+        );
+
+        setError(
+          "ไม่สามารถตรวจสอบข้อมูลสมาชิกได้\n\n" +
+            loginError.message
+        );
+
+        return;
+      }
+
+      // ==============================
+      // ไม่พบสมาชิก
+      // ==============================
+
+      if (!member) {
+        setError(
+          "ชื่อ-นามสกุล หรือรหัสผ่านไม่ถูกต้อง"
+        );
+
+        return;
+      }
+
+      // ==============================
+      // Login สำเร็จ
+      // ==============================
+
+      const memberSession: Member = {
+        id: member.id,
+        name: member.name,
+        position: member.position,
+        branch: member.branch,
+        department: member.department,
+      };
+
+      localStorage.setItem(
+        "warithep_learning_member",
+        JSON.stringify(memberSession)
+      );
+
+      // ==============================
+      // ไป Dashboard
+      // ==============================
+
+      router.replace("/dashboard");
+    } catch (err) {
+      console.error(
+        "LOGIN EXCEPTION:",
+        err
+      );
+
+      setError(
+        "เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <main className="min-h-screen bg-white text-slate-900">
+    <main className="min-h-screen bg-slate-50">
+
       {/* HEADER */}
-      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3 sm:px-6">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-xl shadow-sm">
+      <header className="border-b border-slate-200 bg-white">
+
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+
+          <Link
+            href="/"
+            className="flex items-center gap-3"
+          >
+
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-2xl">
               🎓
             </div>
 
             <div>
-              <div className="text-sm font-black text-slate-900 sm:text-base">
+
+              <div className="font-black text-slate-900">
                 วารีเทพ
               </div>
 
-              <div className="text-[9px] font-black tracking-[0.25em] text-blue-600 sm:text-[10px]">
+              <div className="text-xs font-bold tracking-widest text-blue-600">
                 LEARNING
               </div>
+
             </div>
+
           </Link>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Link
-              href="/login"
-              className="rounded-xl px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-100 sm:px-4 sm:text-sm"
-            >
-              เข้าสู่ระบบ
-            </Link>
+          <Link
+            href="/register"
+            className="rounded-xl px-4 py-2 font-bold text-slate-600 transition hover:bg-slate-100"
+          >
+            สมัครสมาชิก
+          </Link>
 
-            <Link
-              href="/register"
-              className="rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 sm:px-5 sm:text-sm"
-            >
-              สมัครสมาชิก
-            </Link>
-          </div>
         </div>
+
       </header>
 
-      {/* HERO */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-white via-blue-50/40 to-white">
-        {/* Ice Watermark */}
-        <div className="pointer-events-none absolute -right-20 top-0 select-none text-[280px] font-black leading-none text-blue-50/70">
-          
-        </div>
+      {/* LOGIN AREA */}
+      <div className="flex min-h-[calc(100vh-73px)] items-center justify-center px-5 py-10">
 
-        <div className="pointer-events-none absolute -left-24 bottom-0 select-none text-[240px] font-black leading-none text-blue-50/50">
-          
-        </div>
+        <div className="w-full max-w-md">
 
-        <div className="relative mx-auto flex min-h-[calc(100vh-65px)] max-w-6xl items-center px-5 py-16 sm:px-6 lg:py-20">
-          <div className="w-full text-center">
-            {/* Badge */}
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white px-4 py-2 text-xs font-bold text-blue-600 shadow-sm">
-              🎓 ศูนย์การเรียนรู้ออนไลน์สำหรับพนักงานวารีเทพ
+          {/* TITLE */}
+          <div className="mb-8 text-center">
+
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-blue-600 text-4xl shadow-xl shadow-blue-200">
+              🎓
             </div>
 
-            {/* Heading */}
-            <h1 className="mx-auto max-w-4xl text-4xl font-black leading-tight tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
-              เรียนรู้
-              <span className="text-blue-600"> พัฒนาตน </span>
-              
-              <br className="hidden sm:block" />
-              และเติบโตไปพร้อมกัน
-            </h1>
-
-            {/* Description */}
-            <p className="mx-auto mt-6 max-w-2xl text-sm leading-7 text-slate-500 sm:text-base sm:leading-8">
-              ศูนย์กลางการเรียนรู้และพัฒนาศักยภาพบุคลากร
-              <br className="hidden sm:block" />
-              รวมวิดีโอสอนงาน หลักสูตร แบบทดสอบ และระบบติดตามการเรียนรู้
+            <p className="mt-6 font-bold tracking-widest text-blue-600">
+              WAREETHEP LEARNING
             </p>
 
-            {/* CTA */}
-            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <h1 className="mt-2 text-3xl font-black text-slate-900 md:text-4xl">
+              เข้าสู่ระบบ
+            </h1>
+
+            <p className="mt-3 text-slate-500">
+              เข้าสู่ห้องเรียนวารีเทพ
+            </p>
+
+          </div>
+
+          {/* CARD */}
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/50 md:p-8">
+
+            <form
+              onSubmit={handleLogin}
+              className="space-y-5"
+            >
+
+              {/* NAME */}
+              <div>
+
+                <label className="mb-2 block text-sm font-bold text-slate-700">
+                  ชื่อ-นามสกุล
+                  <span className="ml-1 text-red-500">
+                    *
+                  </span>
+                </label>
+
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) =>
+                    setName(e.target.value)
+                  }
+                  placeholder="กรอกชื่อ-นามสกุล"
+                  autoComplete="name"
+                  disabled={loading}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-50 disabled:text-slate-400"
+                />
+
+              </div>
+
+              {/* PASSWORD */}
+              <div>
+
+                <label className="mb-2 block text-sm font-bold text-slate-700">
+                  รหัสผ่าน
+                  <span className="ml-1 text-red-500">
+                    *
+                  </span>
+                </label>
+
+                <div className="relative">
+
+                  <input
+                    type={
+                      showPassword
+                        ? "text"
+                        : "password"
+                    }
+                    value={password}
+                    onChange={(e) =>
+                      setPassword(e.target.value)
+                    }
+                    placeholder="กรอกรหัสผ่าน"
+                    autoComplete="current-password"
+                    disabled={loading}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 pr-14 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-50 disabled:text-slate-400"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowPassword(
+                        !showPassword
+                      )
+                    }
+                    disabled={loading}
+                    aria-label={
+                      showPassword
+                        ? "ซ่อนรหัสผ่าน"
+                        : "แสดงรหัสผ่าน"
+                    }
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-lg transition hover:bg-slate-100 disabled:opacity-50"
+                  >
+                    {showPassword
+                      ? "🙈"
+                      : "👁️"}
+                  </button>
+
+                </div>
+
+              </div>
+
+              {/* ERROR */}
+              {error && (
+                <div className="whitespace-pre-line rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold leading-6 text-red-600">
+                  ⚠️ {error}
+                </div>
+              )}
+
+              {/* LOGIN BUTTON */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-2xl bg-blue-600 px-5 py-4 font-black text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading
+                  ? "กำลังตรวจสอบข้อมูล..."
+                  : "เข้าสู่ระบบ →"}
+              </button>
+
+            </form>
+
+            {/* REGISTER */}
+            <div className="mt-7 border-t border-slate-100 pt-6 text-center">
+
+              <p className="text-sm text-slate-500">
+                ยังไม่มีบัญชี?
+              </p>
+
               <Link
                 href="/register"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-7 py-4 text-sm font-black text-white shadow-xl shadow-blue-200 transition hover:-translate-y-0.5 hover:bg-blue-700 sm:w-auto"
+                className="mt-2 inline-block font-black text-blue-600 transition hover:text-blue-700"
               >
-                🚀 สมัครสมาชิก
+                สมัครสมาชิก
               </Link>
 
-              <Link
-                href="/login"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-7 py-4 text-sm font-black text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 sm:w-auto"
-              >
-                🔐 เข้าสู่ระบบ
-              </Link>
             </div>
 
-            {/* Access Notice */}
-            <div className="mx-auto mt-10 max-w-xl rounded-2xl border border-blue-100 bg-blue-50/70 px-5 py-4">
-              <div className="flex items-center justify-center gap-2 text-sm font-black text-slate-800">
-                🔒 สำหรับสมาชิกวารีเทพ
-              </div>
-
-              <p className="mt-1 text-xs leading-6 text-slate-500">
-                กรุณาสมัครสมาชิกและเข้าสู่ระบบก่อนเริ่มใช้งานห้องเรียน
-              </p>
-            </div>
-
-            {/* Feature Preview */}
-            <div className="mx-auto mt-14 grid max-w-4xl gap-4 sm:grid-cols-3">
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-2xl">
-                  📚
-                </div>
-
-                <h3 className="mt-4 font-black text-slate-900">
-                  ห้องเรียนออนไลน์
-                </h3>
-
-                <p className="mt-2 text-xs leading-6 text-slate-500">
-                  เรียนรู้จากวิดีโอสอนงานของแต่ละฝ่าย
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-2xl">
-                  🎬
-                </div>
-
-                <h3 className="mt-4 font-black text-slate-900">
-                  วิดีโอการเรียนรู้
-                </h3>
-
-                <p className="mt-2 text-xs leading-6 text-slate-500">
-                  เรียนจากวิดีโออบรมและสื่อการเรียนรู้
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-2xl">
-                  🏆
-                </div>
-
-                <h3 className="mt-4 font-black text-slate-900">
-                  พัฒนาตัวเอง
-                </h3>
-
-                <p className="mt-2 text-xs leading-6 text-slate-500">
-                  ติดตามผลการเรียนและพัฒนาศักยภาพของคุณ
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* FOOTER */}
-      <footer className="border-t border-slate-200 bg-white">
-        <div className="mx-auto max-w-7xl px-5 py-7 text-center">
-          <div className="text-sm font-black text-slate-800">
-            🎓 วารีเทพ Learning
           </div>
 
-          <p className="mt-1 text-xs text-slate-400">
-            Learning • Training • Development
-          </p>
+          {/* STATUS */}
+          <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-center">
+
+            <p className="text-xs font-bold text-blue-700">
+              🔐 ระบบสมาชิก วารีเทพ Learning
+            </p>
+
+            <p className="mt-1 text-xs leading-5 text-blue-600">
+              กรุณาใช้ชื่อและรหัสผ่านที่สมัครสมาชิกไว้
+            </p>
+
+          </div>
+
         </div>
-      </footer>
+
+      </div>
+
     </main>
   );
 }

@@ -3,22 +3,41 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+
+type Member = {
+  id: string;
+  name: string;
+  position: string;
+  branch: string;
+  department: string;
+};
 
 export default function LoginPage() {
   const router = useRouter();
 
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+
   const [showPassword, setShowPassword] = useState(false);
+
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  function handleLogin(event: FormEvent<HTMLFormElement>) {
+  async function handleLogin(
+    event: FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
 
     setError("");
 
-    if (!name.trim()) {
+    const cleanName = name.trim();
+
+    // ==============================
+    // ตรวจสอบข้อมูลเบื้องต้น
+    // ==============================
+
+    if (!cleanName) {
       setError("กรุณากรอกชื่อ-นามสกุล");
       return;
     }
@@ -28,37 +47,101 @@ export default function LoginPage() {
       return;
     }
 
-    setLoading(true);
+    if (loading) return;
 
-    /*
-      ตอนนี้ยังเป็นระบบทดสอบหน้าเว็บ
-      ยังไม่ได้เชื่อม Supabase
-    */
+    try {
+      setLoading(true);
 
-    const savedMember = localStorage.getItem(
-      "warithep_learning_member"
-    );
+      // ==============================
+      // ล้าง Session เดิม
+      // ==============================
 
-    if (savedMember) {
-      try {
-        const member = JSON.parse(savedMember);
+      localStorage.removeItem(
+        "warithep_learning_member"
+      );
 
-        if (
-          member.name &&
-          member.name.trim() !== name.trim()
-        ) {
-          setError("ชื่อ-นามสกุลไม่ตรงกับบัญชีที่สมัครไว้");
-          setLoading(false);
-          return;
-        }
-      } catch {
-        // ถ้าข้อมูลเดิมอ่านไม่ได้ ให้เข้าสู่ระบบทดสอบต่อ
+      // ==============================
+      // ตรวจสอบสมาชิกจาก Supabase
+      // ==============================
+
+      const { data: member, error: loginError } =
+        await supabase
+          .from("members")
+          .select(
+            "id, name, position, branch, department"
+          )
+          .eq("name", cleanName)
+          .eq("password", password)
+          .limit(1)
+          .maybeSingle();
+
+      console.log("LOGIN RESULT:", member);
+      console.log("LOGIN ERROR:", loginError);
+
+      // ==============================
+      // Supabase Error
+      // ==============================
+
+      if (loginError) {
+        console.error(
+          "SUPABASE LOGIN ERROR:",
+          loginError
+        );
+
+        setError(
+          "ไม่สามารถตรวจสอบข้อมูลสมาชิกได้\n\n" +
+            loginError.message
+        );
+
+        return;
       }
-    }
 
-    setTimeout(() => {
-      router.push("/dashboard");
-    }, 300);
+      // ==============================
+      // ไม่พบสมาชิก
+      // ==============================
+
+      if (!member) {
+        setError(
+          "ชื่อ-นามสกุล หรือรหัสผ่านไม่ถูกต้อง"
+        );
+
+        return;
+      }
+
+      // ==============================
+      // Login สำเร็จ
+      // ==============================
+
+      const memberSession: Member = {
+        id: member.id,
+        name: member.name,
+        position: member.position,
+        branch: member.branch,
+        department: member.department,
+      };
+
+      localStorage.setItem(
+        "warithep_learning_member",
+        JSON.stringify(memberSession)
+      );
+
+      // ==============================
+      // ไป Dashboard
+      // ==============================
+
+      router.replace("/dashboard");
+    } catch (err) {
+      console.error(
+        "LOGIN EXCEPTION:",
+        err
+      );
+
+      setError(
+        "เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง"
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -69,13 +152,17 @@ export default function LoginPage() {
 
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
 
-          <Link href="/" className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="flex items-center gap-3"
+          >
 
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-2xl">
               🎓
             </div>
 
             <div>
+
               <div className="font-black text-slate-900">
                 วารีเทพ
               </div>
@@ -83,13 +170,14 @@ export default function LoginPage() {
               <div className="text-xs font-bold tracking-widest text-blue-600">
                 LEARNING
               </div>
+
             </div>
 
           </Link>
 
           <Link
             href="/register"
-            className="rounded-xl px-4 py-2 font-bold text-slate-600 hover:bg-slate-100"
+            className="rounded-xl px-4 py-2 font-bold text-slate-600 transition hover:bg-slate-100"
           >
             สมัครสมาชิก
           </Link>
@@ -98,7 +186,7 @@ export default function LoginPage() {
 
       </header>
 
-      {/* LOGIN */}
+      {/* LOGIN AREA */}
       <div className="flex min-h-[calc(100vh-73px)] items-center justify-center px-5 py-10">
 
         <div className="w-full max-w-md">
@@ -137,15 +225,21 @@ export default function LoginPage() {
 
                 <label className="mb-2 block text-sm font-bold text-slate-700">
                   ชื่อ-นามสกุล
+                  <span className="ml-1 text-red-500">
+                    *
+                  </span>
                 </label>
 
                 <input
                   type="text"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) =>
+                    setName(e.target.value)
+                  }
                   placeholder="กรอกชื่อ-นามสกุล"
                   autoComplete="name"
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+                  disabled={loading}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-50 disabled:text-slate-400"
                 />
 
               </div>
@@ -155,27 +249,47 @@ export default function LoginPage() {
 
                 <label className="mb-2 block text-sm font-bold text-slate-700">
                   รหัสผ่าน
+                  <span className="ml-1 text-red-500">
+                    *
+                  </span>
                 </label>
 
                 <div className="relative">
 
                   <input
-                    type={showPassword ? "text" : "password"}
+                    type={
+                      showPassword
+                        ? "text"
+                        : "password"
+                    }
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) =>
+                      setPassword(e.target.value)
+                    }
                     placeholder="กรอกรหัสผ่าน"
                     autoComplete="current-password"
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 pr-14 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+                    disabled={loading}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 pr-14 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-50 disabled:text-slate-400"
                   />
 
                   <button
                     type="button"
                     onClick={() =>
-                      setShowPassword(!showPassword)
+                      setShowPassword(
+                        !showPassword
+                      )
                     }
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-lg"
+                    disabled={loading}
+                    aria-label={
+                      showPassword
+                        ? "ซ่อนรหัสผ่าน"
+                        : "แสดงรหัสผ่าน"
+                    }
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-lg transition hover:bg-slate-100 disabled:opacity-50"
                   >
-                    {showPassword ? "🙈" : "👁️"}
+                    {showPassword
+                      ? "🙈"
+                      : "👁️"}
                   </button>
 
                 </div>
@@ -184,7 +298,7 @@ export default function LoginPage() {
 
               {/* ERROR */}
               {error && (
-                <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+                <div className="whitespace-pre-line rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold leading-6 text-red-600">
                   ⚠️ {error}
                 </div>
               )}
@@ -196,7 +310,7 @@ export default function LoginPage() {
                 className="w-full rounded-2xl bg-blue-600 px-5 py-4 font-black text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading
-                  ? "กำลังเข้าสู่ระบบ..."
+                  ? "กำลังตรวจสอบข้อมูล..."
                   : "เข้าสู่ระบบ →"}
               </button>
 
@@ -211,7 +325,7 @@ export default function LoginPage() {
 
               <Link
                 href="/register"
-                className="mt-2 inline-block font-black text-blue-600 hover:text-blue-700"
+                className="mt-2 inline-block font-black text-blue-600 transition hover:text-blue-700"
               >
                 สมัครสมาชิก
               </Link>
@@ -220,17 +334,15 @@ export default function LoginPage() {
 
           </div>
 
-          {/* TEST MODE */}
+          {/* STATUS */}
           <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-center">
 
             <p className="text-xs font-bold text-blue-700">
-              ℹ️ ระบบทดสอบ
+              🔐 ระบบสมาชิก วารีเทพ Learning
             </p>
 
             <p className="mt-1 text-xs leading-5 text-blue-600">
-              ขณะนี้ระบบยังไม่ได้เชื่อมต่อ Supabase
-              <br />
-              กำลังเตรียมระบบฐานข้อมูลสมาชิก
+              กรุณาใช้ชื่อและรหัสผ่านที่สมัครสมาชิกไว้
             </p>
 
           </div>
