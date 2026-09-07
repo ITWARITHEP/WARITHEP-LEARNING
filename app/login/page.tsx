@@ -8,12 +8,8 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 
-const REMEMBER_KEY =
-  "warithep_learning_remember";
-
-const LOGIN_NAME_KEY =
-  "warithep_learning_login_name";
-
+const REMEMBER_KEY = "warithep_learning_remember";
+const LOGIN_NAME_KEY = "warithep_learning_login_name";
 const LOGIN_PASSWORD_KEY =
   "warithep_learning_login_password";
 
@@ -23,17 +19,12 @@ export default function LoginPage() {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
 
-  const [remember, setRemember] =
-    useState(false);
-
+  const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] =
     useState(false);
 
-  const [error, setError] =
-    useState("");
-
-  const [loading, setLoading] =
-    useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   /*
   |--------------------------------------------------------------------------
@@ -42,31 +33,31 @@ export default function LoginPage() {
   */
 
   useEffect(() => {
-    const savedRemember =
-      localStorage.getItem(
-        REMEMBER_KEY
-      );
+    try {
+      const savedRemember =
+        localStorage.getItem(REMEMBER_KEY);
 
-    if (savedRemember === "true") {
-      const savedName =
-        localStorage.getItem(
-          LOGIN_NAME_KEY
-        );
+      if (savedRemember === "true") {
+        const savedName =
+          localStorage.getItem(LOGIN_NAME_KEY);
 
-      const savedPassword =
-        localStorage.getItem(
-          LOGIN_PASSWORD_KEY
-        );
+        const savedPassword =
+          localStorage.getItem(
+            LOGIN_PASSWORD_KEY
+          );
 
-      if (savedName) {
-        setName(savedName);
+        if (savedName) {
+          setName(savedName);
+        }
+
+        if (savedPassword) {
+          setPassword(savedPassword);
+        }
+
+        setRemember(true);
       }
-
-      if (savedPassword) {
-        setPassword(savedPassword);
-      }
-
-      setRemember(true);
+    } catch {
+      // ป้องกัน localStorage error
     }
   }, []);
 
@@ -84,16 +75,12 @@ export default function LoginPage() {
     setError("");
 
     if (!name.trim()) {
-      setError(
-        "กรุณากรอกชื่อ-นามสกุล"
-      );
+      setError("กรุณากรอกชื่อ-นามสกุล");
       return;
     }
 
     if (!password) {
-      setError(
-        "กรุณากรอกรหัสผ่าน"
-      );
+      setError("กรุณากรอกรหัสผ่าน");
       return;
     }
 
@@ -105,33 +92,37 @@ export default function LoginPage() {
     |--------------------------------------------------------------------------
     */
 
-    if (remember) {
-      localStorage.setItem(
-        REMEMBER_KEY,
-        "true"
-      );
+    try {
+      if (remember) {
+        localStorage.setItem(
+          REMEMBER_KEY,
+          "true"
+        );
 
-      localStorage.setItem(
-        LOGIN_NAME_KEY,
-        name.trim()
-      );
+        localStorage.setItem(
+          LOGIN_NAME_KEY,
+          name.trim()
+        );
 
-      localStorage.setItem(
-        LOGIN_PASSWORD_KEY,
-        password
-      );
-    } else {
-      localStorage.removeItem(
-        REMEMBER_KEY
-      );
+        localStorage.setItem(
+          LOGIN_PASSWORD_KEY,
+          password
+        );
+      } else {
+        localStorage.removeItem(
+          REMEMBER_KEY
+        );
 
-      localStorage.removeItem(
-        LOGIN_NAME_KEY
-      );
+        localStorage.removeItem(
+          LOGIN_NAME_KEY
+        );
 
-      localStorage.removeItem(
-        LOGIN_PASSWORD_KEY
-      );
+        localStorage.removeItem(
+          LOGIN_PASSWORD_KEY
+        );
+      }
+    } catch {
+      // ป้องกัน localStorage error
     }
 
     /*
@@ -147,13 +138,11 @@ export default function LoginPage() {
 
     if (savedMember) {
       try {
-        const member =
-          JSON.parse(savedMember);
+        const member = JSON.parse(savedMember);
 
         if (
           member.name &&
-          member.name.trim() !==
-            name.trim()
+          member.name.trim() !== name.trim()
         ) {
           setError(
             "ชื่อ-นามสกุลไม่ตรงกับบัญชีที่สมัครไว้"
@@ -169,13 +158,31 @@ export default function LoginPage() {
 
     /*
     |--------------------------------------------------------------------------
-    | ระบบทดสอบ
+    | เข้าสู่ระบบ
     |--------------------------------------------------------------------------
     */
 
     window.setTimeout(() => {
       router.push("/dashboard");
     }, 300);
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | ล้างข้อมูลที่จำไว้
+  |--------------------------------------------------------------------------
+  */
+
+  function clearRememberedLogin() {
+    localStorage.removeItem(REMEMBER_KEY);
+    localStorage.removeItem(LOGIN_NAME_KEY);
+    localStorage.removeItem(
+      LOGIN_PASSWORD_KEY
+    );
+
+    setName("");
+    setPassword("");
+    setRemember(false);
   }
 
   return (
@@ -193,13 +200,11 @@ export default function LoginPage() {
             href="/"
             className="flex items-center gap-3"
           >
-
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-2xl shadow-md shadow-blue-200">
               🎓
             </div>
 
             <div>
-
               <div className="font-black text-slate-900">
                 วารีเทพ
               </div>
@@ -207,11 +212,8 @@ export default function LoginPage() {
               <div className="text-xs font-bold tracking-widest text-blue-600">
                 LEARNING
               </div>
-
             </div>
-
           </Link>
-
 
           <Link
             href="/register"
@@ -224,7 +226,6 @@ export default function LoginPage() {
 
       </header>
 
-
       {/* ===================================================== */}
       {/* LOGIN */}
       {/* ===================================================== */}
@@ -233,7 +234,9 @@ export default function LoginPage() {
 
         <div className="w-full max-w-md">
 
+          {/* ================================================= */}
           {/* TITLE */}
+          {/* ================================================= */}
 
           <div className="mb-8 text-center">
 
@@ -255,8 +258,9 @@ export default function LoginPage() {
 
           </div>
 
-
+          {/* ================================================= */}
           {/* CARD */}
+          {/* ================================================= */}
 
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/50 md:p-8">
 
@@ -265,7 +269,9 @@ export default function LoginPage() {
               className="space-y-5"
             >
 
+              {/* ================================================= */}
               {/* NAME */}
+              {/* ================================================= */}
 
               <div>
 
@@ -281,13 +287,14 @@ export default function LoginPage() {
                   }
                   placeholder="กรอกชื่อ-นามสกุล"
                   autoComplete="name"
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
                 />
 
               </div>
 
-
+              {/* ================================================= */}
               {/* PASSWORD */}
+              {/* ================================================= */}
 
               <div>
 
@@ -311,7 +318,7 @@ export default function LoginPage() {
                     }
                     placeholder="กรอกรหัสผ่าน"
                     autoComplete="current-password"
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 pr-14 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 pr-14 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
                   />
 
                   <button
@@ -321,7 +328,7 @@ export default function LoginPage() {
                         !showPassword
                       )
                     }
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-lg"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-xl p-2 text-lg transition hover:bg-slate-100"
                     aria-label={
                       showPassword
                         ? "ซ่อนรหัสผ่าน"
@@ -337,43 +344,71 @@ export default function LoginPage() {
 
               </div>
 
-
               {/* ================================================= */}
               {/* REMEMBER PASSWORD */}
               {/* ================================================= */}
 
-              <label className="flex cursor-pointer items-center gap-3 select-none">
+              <div className="rounded-2xl border-2 border-blue-100 bg-blue-50 px-4 py-4">
 
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(e) =>
-                    setRemember(
-                      e.target.checked
-                    )
-                  }
-                  className="h-5 w-5 cursor-pointer rounded border-slate-300 text-blue-600 accent-blue-600"
-                />
+                <label className="flex cursor-pointer items-center gap-3 select-none">
 
-                <span className="text-sm font-semibold text-slate-600">
-                  จดจำรหัสผ่าน
-                </span>
+                  <input
+                    type="checkbox"
+                    checked={remember}
+                    onChange={(e) =>
+                      setRemember(
+                        e.target.checked
+                      )
+                    }
+                    className="h-6 w-6 shrink-0 cursor-pointer accent-blue-600"
+                  />
 
-              </label>
+                  <div className="flex-1">
 
+                    <div className="text-sm font-black text-slate-800">
+                      จดจำรหัสผ่าน
+                    </div>
 
+                    <div className="mt-0.5 text-xs font-medium text-slate-500">
+                      ครั้งต่อไปไม่ต้องกรอกรหัสผ่านใหม่
+                    </div>
+
+                  </div>
+
+                </label>
+
+              </div>
+
+              {/* ================================================= */}
+              {/* CLEAR REMEMBERED LOGIN */}
+              {/* ================================================= */}
+
+              {remember &&
+                (name || password) && (
+                  <button
+                    type="button"
+                    onClick={
+                      clearRememberedLogin
+                    }
+                    className="w-full text-center text-xs font-bold text-slate-400 transition hover:text-red-500"
+                  >
+                    ล้างข้อมูลที่จำไว้
+                  </button>
+                )}
+
+              {/* ================================================= */}
               {/* ERROR */}
+              {/* ================================================= */}
 
               {error && (
-
                 <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
                   ⚠️ {error}
                 </div>
-
               )}
 
-
+              {/* ================================================= */}
               {/* LOGIN BUTTON */}
+              {/* ================================================= */}
 
               <button
                 type="submit"
@@ -387,8 +422,9 @@ export default function LoginPage() {
 
             </form>
 
-
+            {/* ================================================= */}
             {/* REGISTER */}
+            {/* ================================================= */}
 
             <div className="mt-7 border-t border-slate-100 pt-6 text-center">
 
@@ -407,8 +443,9 @@ export default function LoginPage() {
 
           </div>
 
-
+          {/* ================================================= */}
           {/* TEST MODE */}
+          {/* ================================================= */}
 
           <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-center">
 
