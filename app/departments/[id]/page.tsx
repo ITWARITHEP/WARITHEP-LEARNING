@@ -113,10 +113,7 @@ function getFileIcon(fileName: string) {
 
   if (extension === "pdf") return "📕";
 
-  if (
-    extension === "doc" ||
-    extension === "docx"
-  ) {
+  if (extension === "doc" || extension === "docx") {
     return "📘";
   }
 
@@ -128,10 +125,7 @@ function getFileIcon(fileName: string) {
     return "📗";
   }
 
-  if (
-    extension === "ppt" ||
-    extension === "pptx"
-  ) {
+  if (extension === "ppt" || extension === "pptx") {
     return "📙";
   }
 
@@ -150,10 +144,7 @@ function getFileIcon(fileName: string) {
 
 function getFileExtension(fileName: string) {
   return (
-    fileName
-      .split(".")
-      .pop()
-      ?.toLowerCase() || ""
+    fileName.split(".").pop()?.toLowerCase() || ""
   );
 }
 
@@ -210,17 +201,12 @@ export default function DepartmentPage({
   */
 
   useEffect(() => {
-    function preventContextMenu(
-      event: MouseEvent
-    ) {
+    function preventContextMenu(event: MouseEvent) {
       event.preventDefault();
     }
 
-    function preventShortcuts(
-      event: KeyboardEvent
-    ) {
-      const key =
-        event.key.toLowerCase();
+    function preventShortcuts(event: KeyboardEvent) {
+      const key = event.key.toLowerCase();
 
       if (
         (event.ctrlKey &&
@@ -342,19 +328,14 @@ export default function DepartmentPage({
             return;
           }
 
-          setStandards(
-            loadedStandards
-          );
+          setStandards(loadedStandards);
 
           const standardIds =
             loadedStandards.map(
-              (standard) =>
-                standard.id
+              (standard) => standard.id
             );
 
-          if (
-            standardIds.length === 0
-          ) {
+          if (standardIds.length === 0) {
             setFiles([]);
 
             if (!cancelled) {
@@ -428,6 +409,33 @@ export default function DepartmentPage({
     file: StandardFile,
     standard: Standard
   ) {
+    /*
+     * มือถือ:
+     * เปิดไฟล์จริงโดยตรง
+     * ให้ iPhone / Android ใช้ PDF Viewer ของเครื่อง
+     * จึงสามารถดู PDF ได้ครบทุกหน้าและเลื่อนได้
+     */
+
+    const isMobile =
+      /Android|iPhone|iPad|iPod/i.test(
+        navigator.userAgent
+      );
+
+    if (isMobile) {
+      window.open(
+        file.file_url,
+        "_blank",
+        "noopener,noreferrer"
+      );
+
+      return;
+    }
+
+    /*
+     * Desktop:
+     * เปิด Viewer ภายในระบบ
+     */
+
     setSelectedFile(file);
     setSelectedStandard(standard);
     setViewerOpen(true);
@@ -435,7 +443,7 @@ export default function DepartmentPage({
 
   /*
   |--------------------------------------------------------------------------
-  | ปิดเอกสาร
+  | ปิด Viewer
   |--------------------------------------------------------------------------
   */
 
@@ -447,7 +455,7 @@ export default function DepartmentPage({
 
   /*
   |--------------------------------------------------------------------------
-  | Department
+  | หา Department
   |--------------------------------------------------------------------------
   */
 
@@ -492,7 +500,6 @@ export default function DepartmentPage({
     return (
       <main className="min-h-screen bg-[#f5f8fc] px-4 py-20 sm:px-6">
         <div className="mx-auto max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm sm:p-10">
-
           <div className="text-5xl">
             🔎
           </div>
@@ -507,7 +514,6 @@ export default function DepartmentPage({
           >
             ← กลับหน้าหลักสูตร
           </Link>
-
         </div>
       </main>
     );
@@ -520,15 +526,12 @@ export default function DepartmentPage({
         event.preventDefault()
       }
     >
-
       {/* ================================================= */}
       {/* HEADER */}
       {/* ================================================= */}
 
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
-
         <div className="mx-auto flex max-w-[1200px] items-center justify-between px-4 py-4 sm:px-6">
-
           <Link
             href="/courses"
             className="text-sm font-bold text-slate-600 transition hover:text-blue-700"
@@ -537,7 +540,6 @@ export default function DepartmentPage({
           </Link>
 
           <div className="flex items-center gap-2">
-
             <span className="text-xs">
               🔒
             </span>
@@ -545,11 +547,8 @@ export default function DepartmentPage({
             <span className="text-[10px] font-black tracking-[0.12em] text-blue-700 sm:text-xs sm:tracking-[0.16em]">
               WARITHEP LEARNING
             </span>
-
           </div>
-
         </div>
-
       </header>
 
       {/* ================================================= */}
@@ -557,27 +556,22 @@ export default function DepartmentPage({
       {/* ================================================= */}
 
       <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6 sm:py-8">
-
         {/* ================================================= */}
         {/* HERO */}
         {/* ================================================= */}
 
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-
-          <div className="relative overflow-hidden bg-gradient-to-br from-[#06318f] via-[#0b4fc4] to-[#082b78] px-5 py-7 text-white sm:px-7 sm:py-9">
-
+          <div className="relative overflow-hidden bg-gradient-to-br from-[#03246f] via-[#073da6] to-[#061f5f] px-5 py-7 text-white sm:px-7 sm:py-9">
             <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-blue-300/10 blur-3xl" />
 
             <div className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-cyan-300/10 blur-3xl" />
 
             <div className="relative flex items-start gap-4 sm:gap-5">
-
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-2xl sm:h-16 sm:w-16 sm:text-3xl">
                 {department.icon}
               </div>
 
               <div className="min-w-0 flex-1">
-
                 <div className="text-[10px] font-bold tracking-[0.12em] text-blue-100 sm:text-xs sm:tracking-[0.14em]">
                   DEPARTMENT STANDARD
                 </div>
@@ -590,17 +584,13 @@ export default function DepartmentPage({
                   มาตรฐานความรู้และเอกสารที่เกี่ยวข้อง
                   สำหรับบุคลากรของฝ่ายนี้
                 </p>
-
               </div>
-
             </div>
-
           </div>
 
           {/* SUMMARY */}
 
           <div className="grid grid-cols-2 divide-x border-t border-slate-100 md:grid-cols-3">
-
             <div className="px-4 py-5 sm:px-6">
               <div className="text-xs font-medium text-slate-400">
                 มาตรฐาน
@@ -630,9 +620,7 @@ export default function DepartmentPage({
                 🔒 สำหรับการศึกษา
               </div>
             </div>
-
           </div>
-
         </section>
 
         {/* ================================================= */}
@@ -640,9 +628,7 @@ export default function DepartmentPage({
         {/* ================================================= */}
 
         <section className="mt-8">
-
           <div className="mb-5">
-
             <div className="text-xs font-black tracking-[0.14em] text-blue-700">
               STANDARD
             </div>
@@ -654,13 +640,10 @@ export default function DepartmentPage({
             <p className="mt-1 text-sm text-slate-500">
               เอกสารมาตรฐานที่บุคลากรสามารถศึกษาได้
             </p>
-
           </div>
 
           {standards.length === 0 ? (
-
             <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
-
               <div className="text-5xl">
                 📋
               </div>
@@ -672,16 +655,11 @@ export default function DepartmentPage({
               <p className="mt-2 text-sm text-slate-400">
                 ขณะนี้ยังไม่มีมาตรฐานที่เปิดให้ศึกษา
               </p>
-
             </div>
-
           ) : (
-
             <div className="space-y-5">
-
               {standards.map(
                 (standard, index) => {
-
                   const standardFiles =
                     files.filter(
                       (file) =>
@@ -694,9 +672,9 @@ export default function DepartmentPage({
                       key={standard.id}
                       className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
                     >
+                      {/* STANDARD */}
 
                       <div className="flex items-start gap-4">
-
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-sm font-black text-blue-700">
                           {String(
                             index + 1
@@ -704,9 +682,7 @@ export default function DepartmentPage({
                         </div>
 
                         <div className="min-w-0 flex-1">
-
                           <div className="flex flex-wrap items-center gap-2">
-
                             {standard.standard_code && (
                               <span className="rounded-lg bg-blue-100 px-2.5 py-1 text-[11px] font-black text-blue-700">
                                 {
@@ -720,7 +696,6 @@ export default function DepartmentPage({
                                 standard.level
                               }
                             </span>
-
                           </div>
 
                           <h3 className="mt-3 text-lg font-black leading-7 text-slate-900 md:text-xl">
@@ -736,17 +711,13 @@ export default function DepartmentPage({
                               }
                             </p>
                           )}
-
                         </div>
-
                       </div>
 
                       {/* FILES */}
 
                       <div className="mt-6 border-t border-slate-100 pt-5">
-
                         <div className="mb-3 flex items-center justify-between">
-
                           <div className="text-sm font-black text-slate-700">
                             📎 เอกสารประกอบ
                           </div>
@@ -757,23 +728,17 @@ export default function DepartmentPage({
                             }{" "}
                             ไฟล์
                           </div>
-
                         </div>
 
                         {standardFiles.length ===
                         0 ? (
-
                           <div className="rounded-xl bg-slate-50 px-4 py-4 text-center text-xs text-slate-400">
                             ยังไม่มีเอกสารแนบ
                           </div>
-
                         ) : (
-
                           <div className="grid gap-3 md:grid-cols-2">
-
                             {standardFiles.map(
                               (file) => (
-
                                 <button
                                   key={
                                     file.id
@@ -785,9 +750,8 @@ export default function DepartmentPage({
                                       standard
                                     )
                                   }
-                                  className="group flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50"
+                                  className="group flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-blue-300 hover:bg-blue-50 active:scale-[0.99]"
                                 >
-
                                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-xl shadow-sm transition group-hover:scale-105">
                                     {getFileIcon(
                                       file.file_name
@@ -795,7 +759,6 @@ export default function DepartmentPage({
                                   </div>
 
                                   <div className="min-w-0 flex-1">
-
                                     <div className="truncate text-sm font-bold text-slate-700">
                                       {
                                         file.file_name
@@ -803,7 +766,6 @@ export default function DepartmentPage({
                                     </div>
 
                                     <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-400">
-
                                       <span>
                                         {formatFileSize(
                                           file.file_size
@@ -817,61 +779,43 @@ export default function DepartmentPage({
                                       <span>
                                         🔒 อ่านออนไลน์
                                       </span>
-
                                     </div>
-
                                   </div>
 
                                   <div className="shrink-0 rounded-xl bg-blue-700 px-4 py-2.5 text-xs font-black text-white transition group-hover:bg-blue-800">
                                     อ่าน
                                   </div>
-
                                 </button>
-
                               )
                             )}
-
                           </div>
-
                         )}
-
                       </div>
-
                     </article>
                   );
                 }
               )}
-
             </div>
-
           )}
-
         </section>
-
       </div>
 
       {/* ================================================= */}
-      {/* DOCUMENT VIEWER */}
+      {/* DESKTOP DOCUMENT VIEWER */}
       {/* ================================================= */}
 
       {viewerOpen &&
         selectedFile && (
-
           <div
             className="fixed inset-0 z-[100] flex flex-col bg-slate-950"
             onContextMenu={(event) =>
               event.preventDefault()
             }
           >
-
-            {/* ============================================= */}
             {/* VIEWER HEADER */}
-            {/* ============================================= */}
 
             <div className="z-20 flex h-16 shrink-0 items-center justify-between border-b border-white/10 bg-slate-950 px-3 sm:px-4 md:px-6">
-
               <div className="flex min-w-0 items-center gap-3">
-
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-xl">
                   {getFileIcon(
                     selectedFile.file_name
@@ -879,7 +823,6 @@ export default function DepartmentPage({
                 </div>
 
                 <div className="min-w-0">
-
                   <div className="truncate text-sm font-bold text-white">
                     {
                       selectedFile.file_name
@@ -889,21 +832,17 @@ export default function DepartmentPage({
                   <div className="truncate text-[11px] text-slate-400">
                     {selectedStandard?.title}
                   </div>
-
                 </div>
-
               </div>
 
               <div className="ml-3 flex shrink-0 items-center gap-2">
-
-                {/* เปิดไฟล์จริง */}
                 <a
                   href={
                     selectedFile.file_url
                   }
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hidden rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/20 sm:block"
+                  className="rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/20"
                 >
                   ↗ เปิดเต็มหน้า
                 </a>
@@ -916,93 +855,40 @@ export default function DepartmentPage({
                 >
                   ✕
                 </button>
-
               </div>
-
             </div>
 
-            {/* ============================================= */}
-            {/* DOCUMENT AREA */}
-            {/* ============================================= */}
+            {/* DOCUMENT */}
 
             <div className="min-h-0 flex-1 overflow-hidden bg-slate-800 p-1 sm:p-2 md:p-4">
-
               <div className="relative h-full w-full overflow-hidden rounded-lg bg-white shadow-2xl sm:rounded-xl">
-
-                {getFileExtension(
-                  selectedFile.file_name
-                ) === "pdf" ? (
-
-                  /*
-                   * Google Viewer ช่วยให้ PDF
-                   * แสดงครบหลายหน้าและเลื่อนบนมือถือได้
-                   */
-                  <iframe
-                    src={`https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(
-                      selectedFile.file_url
-                    )}`}
-                    title={
+                <iframe
+                  src={
+                    getFileExtension(
                       selectedFile.file_name
-                    }
-                    className="absolute inset-0 h-full w-full border-0"
-                    allow="fullscreen"
-                  />
-
-                ) : (
-
-                  <iframe
-                    src={
-                      selectedFile.file_url
-                    }
-                    title={
-                      selectedFile.file_name
-                    }
-                    className="absolute inset-0 h-full w-full border-0"
-                    allow="fullscreen"
-                  />
-
-                )}
-
+                    ) === "pdf"
+                      ? `${selectedFile.file_url}#toolbar=0&navpanes=0&scrollbar=1`
+                      : selectedFile.file_url
+                  }
+                  title={
+                    selectedFile.file_name
+                  }
+                  className="absolute inset-0 h-full w-full border-0"
+                  allow="fullscreen"
+                />
               </div>
-
             </div>
 
-            {/* ============================================= */}
-            {/* MOBILE OPEN BUTTON */}
-            {/* ============================================= */}
-
-            <div className="flex shrink-0 items-center justify-center border-t border-white/10 bg-slate-950 px-3 py-3 sm:hidden">
-
-              <a
-                href={
-                  selectedFile.file_url
-                }
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex w-full max-w-md items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-blue-900/30 active:scale-[0.99]"
-              >
-                ↗ เปิดเอกสารเต็มหน้า
-              </a>
-
-            </div>
-
-            {/* ============================================= */}
             {/* SECURITY NOTICE */}
-            {/* ============================================= */}
 
-            <div className="pointer-events-none absolute bottom-[68px] left-1/2 z-30 hidden -translate-x-1/2 sm:block">
-
+            <div className="pointer-events-none absolute bottom-4 left-1/2 z-30 hidden -translate-x-1/2 sm:block">
               <div className="whitespace-nowrap rounded-full border border-white/10 bg-black/60 px-4 py-2 text-[10px] font-semibold text-slate-300">
                 🔒 เอกสารสำหรับการศึกษา •
                 ห้ามเผยแพร่หรือทำซ้ำ
               </div>
-
             </div>
-
           </div>
-
         )}
-
     </main>
   );
 }

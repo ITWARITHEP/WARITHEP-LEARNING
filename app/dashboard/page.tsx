@@ -182,7 +182,6 @@ export default function DashboardPage() {
       {/* ===================================================== */}
 
       <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
-
         <div className="mx-auto max-w-[1500px] px-4 sm:px-5 md:px-8">
 
           <div className="flex h-[64px] items-center justify-between sm:h-[72px]">
@@ -193,17 +192,13 @@ export default function DashboardPage() {
               href="/dashboard"
               className="flex items-center gap-2.5 sm:gap-3"
             >
-
-              <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 shadow-md shadow-blue-500/15 sm:h-11 sm:w-11 sm:rounded-2xl">
-
-                <span className="relative text-xl sm:text-2xl">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 shadow-md shadow-blue-500/15 sm:h-11 sm:w-11 sm:rounded-2xl">
+                <span className="text-xl sm:text-2xl">
                   🎓
                 </span>
-
               </div>
 
               <div className="leading-tight">
-
                 <div className="text-base font-black text-slate-900 sm:text-lg">
                   วารีเทพ
                 </div>
@@ -211,11 +206,8 @@ export default function DashboardPage() {
                 <div className="text-[9px] font-black tracking-[0.2em] text-blue-600 sm:text-[10px]">
                   LEARNING
                 </div>
-
               </div>
-
             </Link>
-
 
             {/* NAVIGATION */}
 
@@ -243,11 +235,8 @@ export default function DashboardPage() {
               </Link>
 
             </nav>
-
           </div>
-
         </div>
-
       </header>
 
 
@@ -256,8 +245,6 @@ export default function DashboardPage() {
       {/* ===================================================== */}
 
       <section className="relative overflow-hidden border-b border-slate-100 bg-white">
-
-        {/* LIGHT GLOW */}
 
         <div className="pointer-events-none absolute -right-32 -top-32 h-[360px] w-[360px] rounded-full bg-blue-100/50 blur-3xl sm:h-[500px] sm:w-[500px]" />
 
@@ -272,7 +259,6 @@ export default function DashboardPage() {
             WARITHEP LEARNING
 
           </div>
-
 
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
 
@@ -296,12 +282,10 @@ export default function DashboardPage() {
 
             </div>
 
-
             <Link
               href="/courses"
               className="group inline-flex w-fit items-center gap-2.5 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md shadow-blue-500/15 transition hover:bg-blue-700 hover:shadow-lg sm:px-5 sm:py-3.5 sm:text-base"
             >
-
               <span className="text-lg sm:text-xl">
                 📚
               </span>
@@ -313,13 +297,10 @@ export default function DashboardPage() {
               <span className="transition-transform group-hover:translate-x-1">
                 →
               </span>
-
             </Link>
 
           </div>
-
         </div>
-
       </section>
 
 
@@ -455,7 +436,6 @@ export default function DashboardPage() {
           </div>
 
         </div>
-
       </section>
 
 
@@ -481,7 +461,6 @@ export default function DashboardPage() {
 
         </div>
 
-
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-5">
 
           {/* COURSE */}
@@ -490,10 +469,6 @@ export default function DashboardPage() {
             href="/courses"
             className="group relative overflow-hidden rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:border-blue-200 hover:shadow-lg sm:rounded-[24px] sm:p-5"
           >
-
-            <div className="pointer-events-none absolute -right-7 -top-7 text-[80px] opacity-[0.018] sm:text-[100px]">
-              
-            </div>
 
             <div className="flex items-center justify-between">
 
@@ -525,10 +500,6 @@ export default function DashboardPage() {
             className="group relative overflow-hidden rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:border-violet-200 hover:shadow-lg sm:rounded-[24px] sm:p-5"
           >
 
-            <div className="pointer-events-none absolute -right-7 -top-7 text-[80px] opacity-[0.018] sm:text-[100px]">
-              
-            </div>
-
             <div className="flex items-center justify-between">
 
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-lg sm:h-12 sm:w-12 sm:rounded-2xl sm:text-xl">
@@ -558,10 +529,6 @@ export default function DashboardPage() {
             href="/knowledge"
             className="group relative overflow-hidden rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:border-sky-200 hover:shadow-lg sm:rounded-[24px] sm:p-5"
           >
-
-            <div className="pointer-events-none absolute -right-7 -top-7 text-[80px] opacity-[0.018] sm:text-[100px]">
-              
-            </div>
 
             <div className="flex items-center justify-between">
 
@@ -593,10 +560,6 @@ export default function DashboardPage() {
             className="group relative overflow-hidden rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:border-amber-200 hover:shadow-lg sm:rounded-[24px] sm:p-5"
           >
 
-            <div className="pointer-events-none absolute -right-7 -top-7 text-[80px] opacity-[0.018] sm:text-[100px]">
-              
-            </div>
-
             <div className="flex items-center justify-between">
 
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-lg sm:h-12 sm:w-12 sm:rounded-2xl sm:text-xl">
@@ -627,10 +590,6 @@ export default function DashboardPage() {
             className="group relative col-span-2 overflow-hidden rounded-[20px] border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:border-emerald-200 hover:shadow-lg sm:col-span-1 sm:rounded-[24px] sm:p-5"
           >
 
-            <div className="pointer-events-none absolute -right-7 -top-7 text-[80px] opacity-[0.018] sm:text-[100px]">
-              
-            </div>
-
             <div className="flex items-center justify-between">
 
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-lg sm:h-12 sm:w-12 sm:rounded-2xl sm:text-xl">
@@ -654,7 +613,6 @@ export default function DashboardPage() {
           </Link>
 
         </div>
-
       </section>
 
 
@@ -663,8 +621,6 @@ export default function DashboardPage() {
       {/* ===================================================== */}
 
       <section className="relative overflow-hidden">
-
-        {/* VERY LIGHT BACKGROUND */}
 
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-blue-50/20 to-transparent" />
 
@@ -708,37 +664,16 @@ export default function DashboardPage() {
 
 
                     {/* ================================================= */}
-                    {/* LIGHT ICE BLUE HEADER */}
+                    {/* DARK PREMIUM BLUE HEADER */}
                     {/* ================================================= */}
 
-                    <div className="relative h-[135px] overflow-hidden bg-gradient-to-br from-[#2f7df4] via-[#4f93f7] to-[#3973dd] sm:h-[145px]">
+                    <div className="relative h-[145px] overflow-hidden bg-gradient-to-br from-[#00164d] via-[#00358f] to-[#001b5e] sm:h-[155px]">
 
-                      {/* Soft light */}
+                      {/* SUBTLE LIGHT */}
 
-                      <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
+                      <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-blue-300/10 blur-3xl" />
 
-                      <div className="pointer-events-none absolute -bottom-20 -left-12 h-48 w-48 rounded-full bg-cyan-100/10 blur-3xl" />
-
-
-                      {/* ================================================= */}
-                      {/* VERY LIGHT ICE WATERMARK */}
-                      {/* ================================================= */}
-
-                      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-
-                        <div className="absolute -right-5 -top-14 text-[125px] leading-none text-white/[0.035] rotate-12 sm:text-[140px]">
-                          
-                        </div>
-
-                        <div className="absolute right-16 bottom-[-48px] text-[90px] leading-none text-white/[0.025] -rotate-12 sm:text-[100px]">
-                          
-                        </div>
-
-                        <div className="absolute -left-8 bottom-[-55px] text-[105px] leading-none text-white/[0.018] rotate-12 sm:text-[120px]">
-                          
-                        </div>
-
-                      </div>
+                      <div className="pointer-events-none absolute -bottom-20 -left-12 h-48 w-48 rounded-full bg-cyan-300/10 blur-3xl" />
 
 
                       {/* ================================================= */}
@@ -747,7 +682,7 @@ export default function DashboardPage() {
 
                       <div className="absolute right-3 top-3 sm:right-4 sm:top-4">
 
-                        <div className="rounded-full border border-white/30 bg-white/20 px-2.5 py-1 backdrop-blur-sm sm:px-3 sm:py-1.5">
+                        <div className="rounded-full border border-white/30 bg-white/10 px-2.5 py-1.5 sm:px-3 sm:py-2">
 
                           <span className="text-[9px] font-black tracking-wider text-white sm:text-[10px]">
                             DEPT {department.code}
@@ -764,7 +699,7 @@ export default function DashboardPage() {
 
                       <div className="absolute left-4 top-4 sm:left-5 sm:top-5">
 
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/25 bg-white/20 shadow-sm backdrop-blur-sm sm:h-14 sm:w-14 sm:rounded-2xl">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/20 bg-white/10 shadow-sm sm:h-14 sm:w-14 sm:rounded-2xl">
 
                           <span className="text-2xl sm:text-3xl">
                             {department.icon}
@@ -781,11 +716,11 @@ export default function DashboardPage() {
 
                       <div className="absolute bottom-4 left-4 right-4 sm:bottom-5 sm:left-5 sm:right-5">
 
-                        <div className="mb-1 text-[8px] font-black tracking-[0.18em] text-white/75 sm:text-[9px] sm:tracking-[0.2em]">
+                        <div className="mb-1.5 text-[9px] font-black tracking-[0.18em] text-blue-100/80 sm:text-[10px] sm:tracking-[0.2em]">
                           DEPARTMENT
                         </div>
 
-                        <h3 className="text-[14px] font-black leading-[1.3] text-white sm:text-[16px]">
+                        <h3 className="text-[18px] font-black leading-[1.4] tracking-tight text-white sm:text-[20px] sm:leading-[1.4]">
                           {department.name}
                         </h3>
 
@@ -824,9 +759,7 @@ export default function DashboardPage() {
 
 
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 transition-all group-hover:bg-blue-600 group-hover:text-white sm:h-9 sm:w-9">
-
                           →
-
                         </div>
 
                       </div>
@@ -858,7 +791,6 @@ export default function DashboardPage() {
           </div>
 
         </div>
-
       </section>
 
 
