@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -36,6 +37,8 @@ type CloudflareVideo = {
 };
 
 export default function NewVideoPage() {
+  const router = useRouter();
+
   const [videos, setVideos] = useState<CloudflareVideo[]>([]);
   const [selectedVideo, setSelectedVideo] =
     useState<CloudflareVideo | null>(null);
@@ -87,7 +90,13 @@ export default function NewVideoPage() {
   }
 
   useEffect(() => {
-    loadCloudflareVideos();
+    const timer = window.setTimeout(() => {
+      void loadCloudflareVideos();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, []);
 
   // =====================================================
@@ -154,9 +163,7 @@ export default function NewVideoPage() {
     setSaving(true);
 
     try {
-      // -----------------------------------------------
       // ตรวจสอบว่ามีวิดีโอนี้ในระบบแล้วหรือยัง
-      // -----------------------------------------------
       const { data: existing, error: existingError } =
         await supabase
           .from("knowledge_videos")
@@ -176,7 +183,6 @@ export default function NewVideoPage() {
 
         title: title.trim(),
 
-        // สำคัญ:
         // course = วิดีโอสอนงาน
         category: "course",
 
@@ -195,7 +201,9 @@ export default function NewVideoPage() {
         thumbnail_url:
           selectedVideo.thumbnail || null,
 
-        video_url: `https://customer-xv4jsdza59p3njyz.cloudflarestream.com/${selectedVideo.uid}/watch`,
+        video_url:
+          selectedVideo.preview ||
+          `https://customer-xv4jsdza59p3njyz.cloudflarestream.com/${selectedVideo.uid}/watch`,
 
         published: published === "published",
 
@@ -204,10 +212,8 @@ export default function NewVideoPage() {
 
       let result;
 
-      // -----------------------------------------------
       // ถ้ามีแล้ว = อัปเดต
       // ถ้ายังไม่มี = เพิ่มใหม่
-      // -----------------------------------------------
       if (existing?.id) {
         result = await supabase
           .from("knowledge_videos")
@@ -233,8 +239,8 @@ export default function NewVideoPage() {
           : "เพิ่มวิดีโอสอนงานเรียบร้อยแล้ว"
       );
 
-      setTimeout(() => {
-        window.location.href = "/admin/videos";
+      window.setTimeout(() => {
+        router.push("/admin/videos");
       }, 900);
     } catch (err) {
       console.error(err);
@@ -252,18 +258,14 @@ export default function NewVideoPage() {
   return (
     <main className="min-h-screen bg-slate-50">
 
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
+      {/* HEADER */}
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white">
-
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
 
           <Link
             href="/admin"
             className="flex items-center gap-3"
           >
-
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-2xl">
               🎓
             </div>
@@ -277,52 +279,46 @@ export default function NewVideoPage() {
                 LEARNING ADMIN
               </div>
             </div>
-
           </Link>
 
           <Link
             href="/admin/videos"
-            className="rounded-xl px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100"
+            className="rounded-xl px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 sm:px-4"
           >
             ← กลับวิดีโอ
           </Link>
 
         </div>
-
       </header>
 
-      {/* =====================================================
-          CONTENT
-      ===================================================== */}
-      <div className="mx-auto max-w-6xl px-6 py-10">
+      {/* CONTENT */}
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
 
         <div className="mb-8">
-
           <p className="font-bold text-blue-600">
             VIDEO MANAGEMENT
           </p>
 
-          <h1 className="mt-2 text-4xl font-black text-slate-900">
+          <h1 className="mt-2 text-3xl font-black text-slate-900 sm:text-4xl">
             เพิ่มวิดีโอสอนงาน
           </h1>
 
-          <p className="mt-3 text-slate-500">
+          <p className="mt-3 text-sm leading-6 text-slate-500 sm:text-base">
             เลือกวิดีโอที่มีอยู่ใน Cloudflare Stream
             แล้วกำหนดฝ่ายสำหรับวิดีโอสอนงาน
           </p>
-
         </div>
 
         {/* ERROR */}
         {error && (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 font-semibold text-red-700">
+          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700">
             ❌ {error}
           </div>
         )}
 
         {/* SUCCESS */}
         {success && (
-          <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 font-semibold text-green-700">
+          <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-sm font-semibold text-green-700">
             ✅ {success}
           </div>
         )}
@@ -332,12 +328,11 @@ export default function NewVideoPage() {
           {/* =================================================
               CLOUDFLARE VIDEOS
           ================================================= */}
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
 
             <div className="mb-6 flex items-start justify-between gap-4">
 
               <div>
-
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-2xl">
                   ☁️
                 </div>
@@ -349,14 +344,13 @@ export default function NewVideoPage() {
                 <p className="mt-1 text-sm text-slate-400">
                   เลือกวิดีโอที่อัปโหลดไว้แล้ว
                 </p>
-
               </div>
 
               <button
                 type="button"
-                onClick={loadCloudflareVideos}
+                onClick={() => void loadCloudflareVideos()}
                 disabled={loading}
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50 sm:px-4"
               >
                 🔄 รีเฟรช
               </button>
@@ -397,7 +391,7 @@ export default function NewVideoPage() {
 
             {/* VIDEO LIST */}
             {!loading && videos.length > 0 && (
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2">
 
                 {videos.map((video) => {
 
@@ -498,7 +492,7 @@ export default function NewVideoPage() {
           {/* =================================================
               FORM
           ================================================= */}
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
 
             <div className="mb-6">
 
@@ -668,7 +662,7 @@ export default function NewVideoPage() {
             </div>
 
             {/* ACTION */}
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
 
               <Link
                 href="/admin/videos"
@@ -679,7 +673,7 @@ export default function NewVideoPage() {
 
               <button
                 type="button"
-                onClick={saveVideo}
+                onClick={() => void saveVideo()}
                 disabled={
                   saving || !selectedVideo
                 }

@@ -134,9 +134,15 @@ export default function AdminKnowledgePage() {
   }
 
   useEffect(() => {
-    loadVideos();
-    loadSavedVideos();
-  }, []);
+  const timer = window.setTimeout(() => {
+    void loadVideos();
+    void loadSavedVideos();
+  }, 0);
+
+  return () => {
+    window.clearTimeout(timer);
+  };
+}, []);
 
   const savedIds = useMemo(() => {
     return new Set(
