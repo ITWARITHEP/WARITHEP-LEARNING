@@ -1,69 +1,316 @@
-import Image from "next/image";
+import Link from "next/link";
+
+const departments = [
+  {
+    id: 1,
+    name: "ฝ่ายสำนักบริหารกลาง",
+    icon: "🏢",
+  },
+  {
+    id: 2,
+    name: "ฝ่ายบริหารทรัพยากรมนุษย์",
+    icon: "👥",
+  },
+  {
+    id: 3,
+    name: "ฝ่ายพัฒนาทรัพยากรมนุษย์และการสื่อสาร",
+    icon: "🎓",
+  },
+  {
+    id: 4,
+    name: "ฝ่ายจัดซื้อจัดจ้าง",
+    icon: "🛒",
+  },
+  {
+    id: 5,
+    name: "ฝ่ายวิศวกรรม",
+    icon: "⚙️",
+  },
+  {
+    id: 6,
+    name: "ฝ่ายคลังสินค้า",
+    icon: "📦",
+  },
+  {
+    id: 7,
+    name: "ฝ่ายการขายและการตลาด",
+    icon: "📈",
+  },
+  {
+    id: 8,
+    name: "ฝ่ายการเงิน",
+    icon: "💳",
+  },
+  {
+    id: 9,
+    name: "ฝ่ายบัญชี",
+    icon: "🧾",
+  },
+  {
+    id: 10,
+    name: "ฝ่ายการภาษี",
+    icon: "📑",
+  },
+  {
+    id: 11,
+    name: "ฝ่ายเทคโนโลยีสารสนเทศ",
+    icon: "💻",
+  },
+  {
+    id: 12,
+    name: "ฝ่ายตรวจสอบภายใน",
+    icon: "🔎",
+  },
+  {
+    id: 13,
+    name: "ฝ่ายบริหารโครงการ",
+    icon: "📋",
+  },
+];
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <main className="min-h-screen bg-slate-50 text-slate-900">
+
+      {/* HEADER */}
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+
+          <Link href="/" className="flex items-center gap-3">
+
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-2xl">
+              🎓
+            </div>
+
+            <div>
+              <div className="font-black text-slate-900">
+                วารีเทพ
+              </div>
+
+              <div className="text-xs font-bold tracking-widest text-blue-600">
+                LEARNING
+              </div>
+            </div>
+
+          </Link>
+
+          <div className="flex items-center gap-2">
+
+            <Link
+              href="/login"
+              className="rounded-xl px-4 py-2 font-semibold text-slate-700 hover:bg-slate-100"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              เข้าสู่ระบบ
+            </Link>
+
+            <Link
+              href="/register"
+              className="rounded-xl bg-blue-600 px-5 py-2.5 font-bold text-white shadow-lg shadow-blue-200 hover:bg-blue-700"
             >
-              Learning
-            </a>{" "}
-            center.
+              สมัครสมาชิก
+            </Link>
+
+          </div>
+
+        </div>
+      </header>
+
+      {/* HERO */}
+      <section className="bg-white">
+
+        <div className="mx-auto max-w-7xl px-6 py-20">
+
+          <div className="max-w-4xl">
+
+            <div className="mb-5 inline-block rounded-full bg-blue-50 px-4 py-2 text-sm font-bold text-blue-600">
+              🎓 ห้องเรียนออนไลน์วารีเทพ
+            </div>
+
+            <h1 className="text-4xl font-black leading-tight md:text-6xl">
+              เรียนรู้{" "}
+              <span className="text-blue-600">
+                พัฒนาตัวเอง
+              </span>{" "}
+              และเติบโตไปพร้อมกัน
+            </h1>
+
+            <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-500">
+              ศูนย์กลางการเรียนรู้ออนไลน์สำหรับพนักงานวารีเทพ
+              รวมวิดีโอสอนงาน หลักสูตร แบบทดสอบ คะแนน
+              และอันดับประจำเดือนไว้ในที่เดียว
+            </p>
+
+            <div className="mt-8 flex flex-wrap gap-4">
+
+              <Link
+                href="/register"
+                className="rounded-xl bg-blue-600 px-7 py-4 font-bold text-white shadow-lg shadow-blue-200 hover:bg-blue-700"
+              >
+                🚀 เริ่มเรียนรู้
+              </Link>
+
+              <Link
+                href="/departments"
+                className="rounded-xl border border-slate-200 bg-white px-7 py-4 font-bold text-slate-700 hover:border-blue-300 hover:text-blue-600"
+              >
+                ดูห้องเรียน
+              </Link>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* STAT */}
+      <section className="mx-auto max-w-7xl px-6 py-10">
+
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+            <div className="text-3xl">
+              🏢
+            </div>
+
+            <div className="mt-2 text-3xl font-black">
+              13
+            </div>
+
+            <div className="text-sm text-slate-500">
+              ฝ่ายสำนักงานใหญ่
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+            <div className="text-3xl">
+              📚
+            </div>
+
+            <div className="mt-2 text-3xl font-black">
+              120+
+            </div>
+
+            <div className="text-sm text-slate-500">
+              หลักสูตร
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+            <div className="text-3xl">
+              🎬
+            </div>
+
+            <div className="mt-2 text-3xl font-black">
+              500+
+            </div>
+
+            <div className="text-sm text-slate-500">
+              วิดีโอ
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+            <div className="text-3xl">
+              👥
+            </div>
+
+            <div className="mt-2 text-3xl font-black">
+              1,000+
+            </div>
+
+            <div className="text-sm text-slate-500">
+              สมาชิก
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* DEPARTMENTS */}
+      <section className="mx-auto max-w-7xl px-6 pb-20">
+
+        <div className="mb-8">
+
+          <p className="font-bold text-blue-600">
+            LEARNING CENTER
           </p>
+
+          <h2 className="mt-2 text-3xl font-black">
+            ห้องเรียน 13 ฝ่าย
+          </h2>
+
+          <p className="mt-2 text-slate-500">
+            เลือกฝ่ายที่ต้องการเรียนรู้
+          </p>
+
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+
+          {departments.map((department) => (
+
+            <Link
+              key={department.id}
+              href={"/departments/" + department.id}
+              className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-blue-300 hover:shadow-lg"
+            >
+
+              {/* ICON + NUMBER */}
+              <div className="flex items-start justify-between">
+
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-3xl">
+                  {department.icon}
+                </div>
+
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-xs font-black text-slate-500">
+                  {String(department.id).padStart(2, "0")}
+                </div>
+
+              </div>
+
+              {/* NAME */}
+              <h3 className="mt-6 min-h-[58px] text-lg font-black leading-7 text-slate-900">
+                {department.name}
+              </h3>
+
+              {/* DESCRIPTION */}
+              <p className="mt-2 text-sm text-slate-400">
+                หลักสูตรการเรียนรู้
+              </p>
+
+              {/* LINK */}
+              <div className="mt-5 font-bold text-blue-600 transition group-hover:translate-x-1">
+                เข้าสู่ห้องเรียน →
+              </div>
+
+            </Link>
+
+          ))}
+
         </div>
-      </main>
-    </div>
+
+      </section>
+
+      {/* FOOTER */}
+      <footer className="border-t border-slate-200 bg-white">
+
+        <div className="mx-auto max-w-7xl px-6 py-8 text-center">
+
+          <div className="font-black text-slate-800">
+            🎓 วารีเทพ Learning
+          </div>
+
+          <p className="mt-2 text-sm text-slate-400">
+            Learning • Training • Development
+          </p>
+
+        </div>
+
+      </footer>
+
+    </main>
   );
 }
