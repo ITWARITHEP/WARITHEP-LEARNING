@@ -324,15 +324,15 @@ export default function KnowledgePage() {
             {/* ICE WATERMARK */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
               <div className="absolute -right-10 -top-24 rotate-12 text-[250px] leading-none text-white/[0.06]">
-                ❄
+                
               </div>
 
               <div className="absolute -bottom-32 right-[220px] -rotate-12 text-[190px] leading-none text-white/[0.035]">
-                ❄
+                
               </div>
 
               <div className="absolute -bottom-36 -left-10 rotate-12 text-[220px] leading-none text-white/[0.025]">
-                ❄
+                
               </div>
 
               {/* CRYSTAL LINES */}
@@ -734,7 +734,7 @@ export default function KnowledgePage() {
           <div className="rounded-[32px] border border-dashed border-slate-300 bg-white p-14 text-center md:p-20">
             <div className="relative mx-auto flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl bg-blue-50 text-5xl">
               <div className="absolute -right-4 -top-6 text-7xl opacity-10">
-                ❄
+                
               </div>
 
               🎬

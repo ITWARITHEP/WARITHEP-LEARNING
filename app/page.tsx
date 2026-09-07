@@ -44,11 +44,11 @@ export default function HomePage() {
       <section className="relative overflow-hidden bg-gradient-to-b from-white via-blue-50/40 to-white">
         {/* Ice Watermark */}
         <div className="pointer-events-none absolute -right-20 top-0 select-none text-[280px] font-black leading-none text-blue-50/70">
-          ❄
+          
         </div>
 
         <div className="pointer-events-none absolute -left-24 bottom-0 select-none text-[240px] font-black leading-none text-blue-50/50">
-          ❄
+          
         </div>
 
         <div className="relative mx-auto flex min-h-[calc(100vh-65px)] max-w-6xl items-center px-5 py-16 sm:px-6 lg:py-20">

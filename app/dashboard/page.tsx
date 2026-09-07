@@ -492,7 +492,7 @@ export default function DashboardPage() {
           >
 
             <div className="pointer-events-none absolute -right-7 -top-7 text-[80px] opacity-[0.018] sm:text-[100px]">
-              ❄
+              
             </div>
 
             <div className="flex items-center justify-between">
@@ -526,7 +526,7 @@ export default function DashboardPage() {
           >
 
             <div className="pointer-events-none absolute -right-7 -top-7 text-[80px] opacity-[0.018] sm:text-[100px]">
-              ❄
+              
             </div>
 
             <div className="flex items-center justify-between">
@@ -560,7 +560,7 @@ export default function DashboardPage() {
           >
 
             <div className="pointer-events-none absolute -right-7 -top-7 text-[80px] opacity-[0.018] sm:text-[100px]">
-              ❄
+              
             </div>
 
             <div className="flex items-center justify-between">
@@ -594,7 +594,7 @@ export default function DashboardPage() {
           >
 
             <div className="pointer-events-none absolute -right-7 -top-7 text-[80px] opacity-[0.018] sm:text-[100px]">
-              ❄
+              
             </div>
 
             <div className="flex items-center justify-between">
@@ -628,7 +628,7 @@ export default function DashboardPage() {
           >
 
             <div className="pointer-events-none absolute -right-7 -top-7 text-[80px] opacity-[0.018] sm:text-[100px]">
-              ❄
+              
             </div>
 
             <div className="flex items-center justify-between">
@@ -727,15 +727,15 @@ export default function DashboardPage() {
                       <div className="pointer-events-none absolute inset-0 overflow-hidden">
 
                         <div className="absolute -right-5 -top-14 text-[125px] leading-none text-white/[0.035] rotate-12 sm:text-[140px]">
-                          ❄
+                          
                         </div>
 
                         <div className="absolute right-16 bottom-[-48px] text-[90px] leading-none text-white/[0.025] -rotate-12 sm:text-[100px]">
-                          ❄
+                          
                         </div>
 
                         <div className="absolute -left-8 bottom-[-55px] text-[105px] leading-none text-white/[0.018] rotate-12 sm:text-[120px]">
-                          ❄
+                          
                         </div>
 
                       </div>

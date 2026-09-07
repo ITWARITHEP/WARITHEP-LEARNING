@@ -427,15 +427,15 @@ export default function CoursesPage() {
 
                       <div className="pointer-events-none absolute inset-0 overflow-hidden">
                         <div className="absolute -right-7 -top-12 rotate-12 text-[135px] leading-none text-white/[0.025] sm:text-[165px]">
-                          ❄
+                          
                         </div>
 
                         <div className="absolute bottom-[-55px] right-[70px] -rotate-12 text-[105px] leading-none text-white/[0.018] sm:right-[120px] sm:text-[120px]">
-                          ❄
+                          
                         </div>
 
                         <div className="absolute -bottom-16 -left-8 rotate-12 text-[125px] leading-none text-white/[0.015] sm:text-[145px]">
-                          ❄
+                          
                         </div>
 
                         {/* Crystal lines - lighter */}

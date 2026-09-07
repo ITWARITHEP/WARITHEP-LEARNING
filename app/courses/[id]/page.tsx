@@ -280,15 +280,15 @@ export default function CourseDepartmentPage() {
             {/* Ice watermark */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
               <div className="absolute -right-8 -top-20 text-[220px] leading-none text-white/[0.055] rotate-12">
-                ❄
+                
               </div>
 
               <div className="absolute right-[180px] -bottom-24 text-[180px] leading-none text-white/[0.035] -rotate-12">
-                ❄
+                
               </div>
 
               <div className="absolute -left-10 -bottom-32 text-[200px] leading-none text-white/[0.025] rotate-12">
-                ❄
+                
               </div>
             </div>
 

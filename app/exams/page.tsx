@@ -205,7 +205,7 @@ export default function ExamsPage() {
         <div className="pointer-events-none absolute -left-32 top-32 h-[300px] w-[300px] rounded-full bg-sky-100/40 blur-3xl sm:h-[420px] sm:w-[420px]" />
 
         <div className="pointer-events-none absolute right-[15%] top-5 text-[130px] leading-none text-blue-500/[0.018] sm:text-[180px]">
-          ❄
+          
         </div>
 
 
@@ -389,11 +389,11 @@ export default function ExamsPage() {
           <div className="relative overflow-hidden rounded-[24px] border border-blue-100 bg-white px-5 py-16 text-center shadow-sm sm:rounded-[30px] sm:px-6 sm:py-20">
 
             <div className="pointer-events-none absolute -right-10 -top-16 text-[150px] leading-none text-blue-500/[0.018] sm:text-[180px]">
-              ❄
+              
             </div>
 
             <div className="pointer-events-none absolute -bottom-20 -left-10 text-[130px] leading-none text-blue-500/[0.015] sm:text-[150px]">
-              ❄
+              
             </div>
 
 
@@ -466,15 +466,15 @@ export default function ExamsPage() {
                     <div className="pointer-events-none absolute inset-0 overflow-hidden">
 
                       <div className="absolute -right-5 -top-14 rotate-12 text-[120px] leading-none text-white/[0.035] sm:text-[140px]">
-                        ❄
+                        
                       </div>
 
                       <div className="absolute bottom-[-45px] right-16 -rotate-12 text-[85px] leading-none text-white/[0.022] sm:text-[100px]">
-                        ❄
+                        
                       </div>
 
                       <div className="absolute -bottom-[55px] -left-8 rotate-12 text-[100px] leading-none text-white/[0.018] sm:text-[120px]">
-                        ❄
+                        
                       </div>
 
                     </div>
