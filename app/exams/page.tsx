@@ -10,7 +10,7 @@ type Exam = {
   department: string;
   description: string | null;
   question_count: number;
-  passing_score: number;
+  passing_percent: number;
   published: boolean;
 };
 
@@ -61,8 +61,8 @@ export default function ExamsPage() {
       const { data, error } = await supabase
         .from("exams")
         .select(
-          "id,title,department,description,question_count,passing_score,published"
-        )
+  "id,title,department,description,question_count,passing_percent,published"
+)
         .eq("published", true)
         .order("created_at", { ascending: false });
 
@@ -569,7 +569,7 @@ export default function ExamsPage() {
                         </div>
 
                         <div className="mt-1 text-xl font-black text-slate-900 sm:text-2xl">
-                          {exam.passing_score}%
+                          {exam.passing_percent}%
                         </div>
 
                       </div>
