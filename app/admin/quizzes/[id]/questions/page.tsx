@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type Exam = {
   id: string;
   title: string;
   description: string | null;
-  department: string | null;
+  department: string;
   question_count: number;
   total_score: number;
   duration_minutes: number;
@@ -30,48 +30,32 @@ type Question = {
   score: number;
 };
 
-type QuestionForm = {
-  question_text: string;
-  choice_a: string;
-  choice_b: string;
-  choice_c: string;
-  choice_d: string;
-  correct_answer: "A" | "B" | "C" | "D";
-  score: number;
-};
-
-const emptyForm: QuestionForm = {
+const emptyForm = {
   question_text: "",
   choice_a: "",
   choice_b: "",
   choice_c: "",
   choice_d: "",
-  correct_answer: "A",
-  score: 1,
+  correct_answer: "A" as "A" | "B" | "C" | "D",
+  score: "1",
 };
 
-export default function AdminQuestionsPage() {
+export default function QuestionsAdminPage() {
   const params = useParams();
-  const examId = params.id as string;
+  const router = useRouter();
+
+  const examId = String(params.id);
 
   const [exam, setExam] = useState<Exam | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
-
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [form, setForm] = useState(emptyForm);
 
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [form, setForm] = useState<QuestionForm>(emptyForm);
-
-  useEffect(() => {
-    if (!examId) return;
-
-    loadData();
-  }, [examId]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   async function loadData() {
     try {
@@ -100,88 +84,81 @@ export default function AdminQuestionsPage() {
         throw new Error(questionResult.error.message);
       }
 
-      setExam(examResult.data as Exam);
-      setQuestions((questionResult.data || []) as Question[]);
+      setExam(examResult.data);
+      setQuestions(questionResult.data ?? []);
     } catch (err) {
       console.error(err);
 
       setError(
         err instanceof Error
           ? err.message
-          : "ไม่สามารถโหลดข้อมูลแบบทดสอบได้"
+          : "ไม่สามารถโหลดข้อมูลได้"
       );
     } finally {
       setLoading(false);
     }
   }
 
-  function updateForm(
-    field: keyof QuestionForm,
-    value: string | number
-  ) {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
+  useEffect(() => {
+    if (examId) {
+      void loadData();
+    }
+  }, [examId]);
+
+  async function updateExamSummary(nextQuestions: Question[]) {
+    const totalScore = nextQuestions.reduce(
+      (sum, question) => sum + Number(question.score || 0),
+      0
+    );
+
+    const { error } = await supabase
+      .from("exams")
+      .update({
+        question_count: nextQuestions.length,
+        total_score: totalScore,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", examId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    setExam((current) =>
+      current
+        ? {
+            ...current,
+            question_count: nextQuestions.length,
+            total_score: totalScore,
+          }
+        : current
+    );
   }
 
-  function startEdit(question: Question) {
-    setEditingId(question.id);
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
 
-    setForm({
-      question_text: question.question_text,
-      choice_a: question.choice_a,
-      choice_b: question.choice_b,
-      choice_c: question.choice_c,
-      choice_d: question.choice_d,
-      correct_answer: question.correct_answer,
-      score: Number(question.score || 1),
-    });
-
-    setSuccess("");
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  }
-
-  function cancelEdit() {
-    setEditingId(null);
-    setForm(emptyForm);
-    setSuccess("");
-  }
-
-  async function saveQuestion() {
+    setMessage("");
     setError("");
-    setSuccess("");
 
     if (!form.question_text.trim()) {
       setError("กรุณากรอกคำถาม");
       return;
     }
 
-    if (!form.choice_a.trim()) {
-      setError("กรุณากรอกตัวเลือก A");
+    if (
+      !form.choice_a.trim() ||
+      !form.choice_b.trim() ||
+      !form.choice_c.trim() ||
+      !form.choice_d.trim()
+    ) {
+      setError("กรุณากรอกตัวเลือกให้ครบ A - D");
       return;
     }
 
-    if (!form.choice_b.trim()) {
-      setError("กรุณากรอกตัวเลือก B");
-      return;
-    }
+    const score = Number(form.score);
 
-    if (!form.choice_c.trim()) {
-      setError("กรุณากรอกตัวเลือก C");
-      return;
-    }
-
-    if (!form.choice_d.trim()) {
-      setError("กรุณากรอกตัวเลือก D");
-      return;
-    }
-
-    if (Number(form.score) <= 0) {
+    if (!Number.isFinite(score) || score <= 0) {
       setError("คะแนนต้องมากกว่า 0");
       return;
     }
@@ -199,31 +176,33 @@ export default function AdminQuestionsPage() {
             choice_c: form.choice_c.trim(),
             choice_d: form.choice_d.trim(),
             correct_answer: form.correct_answer,
-            score: Number(form.score),
+            score,
             updated_at: new Date().toISOString(),
           })
           .eq("id", editingId)
-          .select("*")
+          .select()
           .single();
 
         if (error) {
           throw new Error(error.message);
         }
 
-        setQuestions((current) =>
-          current
-            .map((item) =>
-              item.id === editingId ? (data as Question) : item
-            )
-            .sort((a, b) => a.question_no - b.question_no)
+        const nextQuestions = questions.map((question) =>
+          question.id === editingId ? data : question
         );
 
-        setSuccess("แก้ไขข้อสอบเรียบร้อยแล้ว");
+        setQuestions(nextQuestions);
+
+        await updateExamSummary(nextQuestions);
+
+        setMessage("แก้ไขข้อสอบเรียบร้อยแล้ว");
       } else {
         const nextQuestionNo =
           questions.length > 0
             ? Math.max(
-                ...questions.map((item) => item.question_no)
+                ...questions.map((question) =>
+                  Number(question.question_no)
+                )
               ) + 1
             : 1;
 
@@ -238,50 +217,75 @@ export default function AdminQuestionsPage() {
             choice_c: form.choice_c.trim(),
             choice_d: form.choice_d.trim(),
             correct_answer: form.correct_answer,
-            score: Number(form.score),
+            score,
           })
-          .select("*")
+          .select()
           .single();
 
         if (error) {
           throw new Error(error.message);
         }
 
-        setQuestions((current) => [
-          ...current,
-          data as Question,
-        ]);
+        const nextQuestions = [...questions, data];
 
-        setSuccess("เพิ่มข้อสอบเรียบร้อยแล้ว");
+        setQuestions(nextQuestions);
+
+        await updateExamSummary(nextQuestions);
+
+        setMessage(`เพิ่มข้อ ${nextQuestionNo} เรียบร้อยแล้ว`);
       }
 
       setForm(emptyForm);
       setEditingId(null);
-
-      await updateExamSummary();
     } catch (err) {
       console.error(err);
 
       setError(
         err instanceof Error
           ? err.message
-          : "ไม่สามารถบันทึกข้อสอบได้"
+          : "บันทึกข้อสอบไม่สำเร็จ"
       );
     } finally {
       setSaving(false);
     }
   }
 
+  function editQuestion(question: Question) {
+    setEditingId(question.id);
+
+    setForm({
+      question_text: question.question_text,
+      choice_a: question.choice_a,
+      choice_b: question.choice_b,
+      choice_c: question.choice_c,
+      choice_d: question.choice_d,
+      correct_answer: question.correct_answer,
+      score: String(question.score),
+    });
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setForm(emptyForm);
+    setMessage("");
+    setError("");
+  }
+
   async function deleteQuestion(question: Question) {
     const confirmed = window.confirm(
-      `ต้องการลบข้อที่ ${question.question_no} ใช่หรือไม่?`
+      `ต้องการลบข้อ ${question.question_no} ใช่หรือไม่?`
     );
 
     if (!confirmed) return;
 
     try {
       setError("");
-      setSuccess("");
+      setMessage("");
 
       const { error } = await supabase
         .from("exam_questions")
@@ -294,128 +298,119 @@ export default function AdminQuestionsPage() {
 
       const remaining = questions
         .filter((item) => item.id !== question.id)
-        .sort((a, b) => a.question_no - b.question_no);
+        .map((item, index) => ({
+          ...item,
+          question_no: index + 1,
+        }));
 
-      // จัดเลขข้อใหม่ 1,2,3,...
-      const reordered = remaining.map((item, index) => ({
-        ...item,
-        question_no: index + 1,
-      }));
-
-      for (const item of reordered) {
+      /*
+       * อัปเดตเลขข้อใหม่ด้วยการลบแล้วสร้างลำดับใหม่
+       * เพื่อป้องกัน unique(exam_id, question_no)
+       */
+      if (remaining.length > 0) {
         await supabase
           .from("exam_questions")
-          .update({
-            question_no: item.question_no,
-          })
-          .eq("id", item.id);
-      }
+          .delete()
+          .eq("exam_id", examId);
 
-      setQuestions(reordered);
+        const rows = remaining.map((item) => ({
+          exam_id: examId,
+          question_no: item.question_no,
+          question_text: item.question_text,
+          choice_a: item.choice_a,
+          choice_b: item.choice_b,
+          choice_c: item.choice_c,
+          choice_d: item.choice_d,
+          correct_answer: item.correct_answer,
+          score: Number(item.score),
+        }));
+
+        const { data, error: insertError } = await supabase
+          .from("exam_questions")
+          .insert(rows)
+          .select();
+
+        if (insertError) {
+          throw new Error(insertError.message);
+        }
+
+        const sorted = (data ?? []).sort(
+          (a, b) => a.question_no - b.question_no
+        );
+
+        setQuestions(sorted);
+
+        await updateExamSummary(sorted);
+      } else {
+        setQuestions([]);
+        await updateExamSummary([]);
+      }
 
       if (editingId === question.id) {
         cancelEdit();
       }
 
-      await updateExamSummary();
-
-      setSuccess("ลบข้อสอบเรียบร้อยแล้ว");
+      setMessage("ลบข้อสอบเรียบร้อยแล้ว");
     } catch (err) {
       console.error(err);
 
       setError(
         err instanceof Error
           ? err.message
-          : "ไม่สามารถลบข้อสอบได้"
+          : "ลบข้อสอบไม่สำเร็จ"
       );
+
+      await loadData();
     }
-  }
-
-  async function updateExamSummary() {
-    const { data, error } = await supabase
-      .from("exam_questions")
-      .select("score")
-      .eq("exam_id", examId);
-
-    if (error) {
-      console.error("Update exam summary error:", error);
-      return;
-    }
-
-    const count = data?.length || 0;
-
-    const totalScore =
-      data?.reduce(
-        (sum, item) => sum + Number(item.score || 0),
-        0
-      ) || 0;
-
-    const { error: updateError } = await supabase
-      .from("exams")
-      .update({
-        question_count: count,
-        total_score: totalScore,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", examId);
-
-    if (updateError) {
-      console.error(
-        "Update exam summary error:",
-        updateError
-      );
-      return;
-    }
-
-    setExam((current) =>
-      current
-        ? {
-            ...current,
-            question_count: count,
-            total_score: totalScore,
-          }
-        : current
-    );
   }
 
   async function togglePublished() {
     if (!exam) return;
 
-    const next = !exam.published;
+    try {
+      setError("");
+      setMessage("");
 
-    const { error } = await supabase
-      .from("exams")
-      .update({
-        published: next,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", exam.id);
+      const { error } = await supabase
+        .from("exams")
+        .update({
+          published: !exam.published,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", examId);
 
-    if (error) {
-      setError(error.message);
-      return;
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      setExam({
+        ...exam,
+        published: !exam.published,
+      });
+
+      setMessage(
+        !exam.published
+          ? "เผยแพร่แบบทดสอบแล้ว"
+          : "ยกเลิกการเผยแพร่แล้ว"
+      );
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "เปลี่ยนสถานะไม่สำเร็จ"
+      );
     }
-
-    setExam({
-      ...exam,
-      published: next,
-    });
-
-    setSuccess(
-      next
-        ? "เปิดใช้งานแบบทดสอบแล้ว"
-        : "ปิดใช้งานแบบทดสอบแล้ว"
-    );
   }
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <div className="text-5xl">⏳</div>
-          <p className="mt-4 font-bold text-slate-600">
-            กำลังโหลดแบบทดสอบ...
-          </p>
+      <main className="min-h-screen bg-[#f6f9fd] p-6">
+        <div className="mx-auto max-w-6xl">
+          <div className="rounded-3xl bg-white p-10 text-center shadow-sm">
+            กำลังโหลดข้อมูล...
+          </div>
         </div>
       </main>
     );
@@ -423,23 +418,23 @@ export default function AdminQuestionsPage() {
 
   if (!exam) {
     return (
-      <main className="min-h-screen bg-slate-50">
-        <div className="mx-auto max-w-3xl px-6 py-20 text-center">
-          <div className="text-6xl">❌</div>
+      <main className="min-h-screen bg-[#f6f9fd] p-6">
+        <div className="mx-auto max-w-3xl rounded-3xl bg-white p-10 text-center shadow-sm">
+          <div className="text-5xl">⚠️</div>
 
-          <h1 className="mt-6 text-2xl font-black">
+          <h1 className="mt-4 text-2xl font-black">
             ไม่พบแบบทดสอบ
           </h1>
 
-          <p className="mt-3 text-slate-500">
-            {error || "แบบทดสอบนี้อาจถูกลบไปแล้ว"}
+          <p className="mt-2 text-slate-500">
+            {error || "ไม่พบข้อมูลแบบทดสอบนี้"}
           </p>
 
           <Link
             href="/admin/quizzes"
-            className="mt-7 inline-block rounded-xl bg-blue-600 px-6 py-3 font-bold text-white"
+            className="mt-6 inline-flex rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white"
           >
-            ← กลับหน้าจัดการแบบทดสอบ
+            ← กลับหน้าแบบทดสอบ
           </Link>
         </div>
       </main>
@@ -447,149 +442,126 @@ export default function AdminQuestionsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-screen bg-[#f6f9fd] text-slate-900">
+
       {/* HEADER */}
-      <header className="sticky top-0 z-50 border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4">
-          <Link
-            href="/admin"
-            className="flex items-center gap-3"
-          >
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-2xl">
-              🎓
-            </div>
 
-            <div>
-              <div className="font-black text-slate-900">
-                วารีเทพ
-              </div>
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
 
-              <div className="text-xs font-bold tracking-widest text-blue-600">
-                LEARNING ADMIN
-              </div>
-            </div>
-          </Link>
-
-          <div className="flex items-center gap-2">
+          <div className="min-w-0">
             <Link
               href="/admin/quizzes"
-              className="rounded-xl px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100"
+              className="text-xs font-bold text-blue-600"
             >
               ← แบบทดสอบ
             </Link>
+
+            <h1 className="mt-1 truncate text-lg font-black sm:text-2xl">
+              {exam.title}
+            </h1>
+
+            <p className="mt-1 text-xs text-slate-500">
+              {exam.department}
+            </p>
           </div>
+
+          <button
+            type="button"
+            onClick={togglePublished}
+            className={`shrink-0 rounded-xl px-4 py-2.5 text-xs font-black transition sm:px-5 sm:py-3 ${
+              exam.published
+                ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                : "bg-blue-600 text-white hover:bg-blue-700"
+            }`}
+          >
+            {exam.published ? "✓ เผยแพร่แล้ว" : "เผยแพร่แบบทดสอบ"}
+          </button>
+
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-6 py-10">
-        {/* EXAM HEADER */}
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
-          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-black ${
-                    exam.published
-                      ? "bg-green-50 text-green-700"
-                      : "bg-slate-100 text-slate-500"
-                  }`}
-                >
-                  {exam.published
-                    ? "เปิดใช้งาน"
-                    : "แบบร่าง"}
-                </span>
 
-                {exam.department && (
-                  <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                    {exam.department}
-                  </span>
-                )}
-              </div>
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
 
-              <h1 className="mt-4 text-3xl font-black text-slate-900">
-                {exam.title}
-              </h1>
+        {/* SUMMARY */}
 
-              {exam.description && (
-                <p className="mt-2 text-slate-500">
-                  {exam.description}
-                </p>
-              )}
+        <div className="grid gap-3 sm:grid-cols-4">
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="text-xs font-bold text-slate-400">
+              จำนวนข้อ
             </div>
 
-            <button
-              type="button"
-              onClick={togglePublished}
-              className={`rounded-2xl px-6 py-4 font-bold shadow-sm ${
-                exam.published
-                  ? "border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
-                  : "bg-blue-600 text-white hover:bg-blue-700"
-              }`}
-            >
-              {exam.published
-                ? "ปิดใช้งานแบบทดสอบ"
-                : "เปิดใช้งานแบบทดสอบ"}
-            </button>
+            <div className="mt-1 text-3xl font-black">
+              {questions.length}
+            </div>
           </div>
 
-          <div className="mt-7 grid grid-cols-2 gap-3 md:grid-cols-4">
-            <SummaryCard
-              icon="❓"
-              label="จำนวนข้อ"
-              value={`${questions.length} ข้อ`}
-            />
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="text-xs font-bold text-slate-400">
+              คะแนนรวม
+            </div>
 
-            <SummaryCard
-              icon="🎯"
-              label="คะแนนเต็ม"
-              value={`${questions.reduce(
-                (sum, item) =>
-                  sum + Number(item.score || 0),
-                0
-              )} คะแนน`}
-            />
-
-            <SummaryCard
-              icon="⏱️"
-              label="เวลาทำ"
-              value={`${exam.duration_minutes} นาที`}
-            />
-
-            <SummaryCard
-              icon="🏆"
-              label="คะแนนผ่าน"
-              value={`${exam.passing_percent}%`}
-            />
+            <div className="mt-1 text-3xl font-black">
+              {exam.total_score}
+            </div>
           </div>
-        </section>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="text-xs font-bold text-slate-400">
+              เวลา
+            </div>
+
+            <div className="mt-1 text-3xl font-black">
+              {exam.duration_minutes}
+              <span className="ml-1 text-sm">นาที</span>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="text-xs font-bold text-slate-400">
+              เกณฑ์ผ่าน
+            </div>
+
+            <div className="mt-1 text-3xl font-black">
+              {exam.passing_percent}%
+            </div>
+          </div>
+
+        </div>
+
 
         {/* MESSAGE */}
+
+        {message && (
+          <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+            ✓ {message}
+          </div>
+        )}
+
         {error && (
-          <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm font-semibold text-red-700">
-            {error}
+          <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+            ⚠️ {error}
           </div>
         )}
 
-        {success && (
-          <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 p-5 text-sm font-semibold text-green-700">
-            {success}
-          </div>
-        )}
 
-        {/* ADD / EDIT FORM */}
-        <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
-          <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
+        {/* FORM */}
+
+        <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+
+          <div className="mb-6 flex items-center justify-between gap-3">
+
             <div>
-              <p className="font-bold text-blue-600">
-                {editingId
-                  ? "EDIT QUESTION"
-                  : "CREATE QUESTION"}
-              </p>
+              <div className="text-xs font-black tracking-widest text-blue-600">
+                QUESTION EDITOR
+              </div>
 
-              <h2 className="mt-1 text-2xl font-black text-slate-900">
+              <h2 className="mt-1 text-xl font-black">
                 {editingId
                   ? "แก้ไขข้อสอบ"
-                  : `เพิ่มข้อสอบข้อที่ ${questions.length + 1}`}
+                  : "เพิ่มข้อสอบ"}
               </h2>
             </div>
 
@@ -597,198 +569,229 @@ export default function AdminQuestionsPage() {
               <button
                 type="button"
                 onClick={cancelEdit}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50"
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600"
               >
-                ยกเลิกการแก้ไข
+                ยกเลิกแก้ไข
               </button>
             )}
+
           </div>
 
-          {/* QUESTION */}
-          <div className="mt-7">
-            <label className="mb-2 block text-sm font-black text-slate-700">
-              คำถาม
+
+          <form onSubmit={handleSubmit}>
+
+            <label className="block">
+              <div className="mb-2 text-sm font-black">
+                คำถาม
+              </div>
+
+              <textarea
+                value={form.question_text}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    question_text: e.target.value,
+                  })
+                }
+                rows={4}
+                placeholder="พิมพ์คำถาม..."
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white"
+              />
             </label>
 
-            <textarea
-              value={form.question_text}
-              onChange={(e) =>
-                updateForm(
-                  "question_text",
-                  e.target.value
-                )
-              }
-              rows={4}
-              placeholder="พิมพ์คำถาม..."
-              className="w-full resize-none rounded-2xl border border-slate-200 px-5 py-4 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
-            />
-          </div>
 
-          {/* CHOICES */}
-          <div className="mt-6 grid gap-5 md:grid-cols-2">
-            <ChoiceInput
-              letter="A"
-              value={form.choice_a}
-              onChange={(value) =>
-                updateForm("choice_a", value)
-              }
-            />
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
 
-            <ChoiceInput
-              letter="B"
-              value={form.choice_b}
-              onChange={(value) =>
-                updateForm("choice_b", value)
-              }
-            />
+              {[
+                ["A", "choice_a"],
+                ["B", "choice_b"],
+                ["C", "choice_c"],
+                ["D", "choice_d"],
+              ].map(([letter, key]) => (
+                <label key={letter} className="block">
 
-            <ChoiceInput
-              letter="C"
-              value={form.choice_c}
-              onChange={(value) =>
-                updateForm("choice_c", value)
-              }
-            />
+                  <div className="mb-2 text-sm font-black">
+                    ตัวเลือก {letter}
+                  </div>
 
-            <ChoiceInput
-              letter="D"
-              value={form.choice_d}
-              onChange={(value) =>
-                updateForm("choice_d", value)
-              }
-            />
-          </div>
+                  <input
+                    type="text"
+                    value={
+                      form[
+                        key as
+                          | "choice_a"
+                          | "choice_b"
+                          | "choice_c"
+                          | "choice_d"
+                      ]
+                    }
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        [key]: e.target.value,
+                      })
+                    }
+                    placeholder={`ตัวเลือก ${letter}`}
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white"
+                  />
 
-          {/* ANSWER + SCORE */}
-          <div className="mt-6 grid gap-5 md:grid-cols-2">
-            <div>
-              <label className="mb-2 block text-sm font-black text-slate-700">
-                เฉลย
-              </label>
+                </label>
+              ))}
 
-              <select
-                value={form.correct_answer}
-                onChange={(e) =>
-                  updateForm(
-                    "correct_answer",
-                    e.target.value
-                  )
-                }
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
-              >
-                <option value="A">A</option>
-                <option value="B">B</option>
-                <option value="C">C</option>
-                <option value="D">D</option>
-              </select>
             </div>
 
-            <div>
-              <label className="mb-2 block text-sm font-black text-slate-700">
-                คะแนน
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+
+              <label>
+                <div className="mb-2 text-sm font-black">
+                  คำตอบที่ถูกต้อง
+                </div>
+
+                <select
+                  value={form.correct_answer}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      correct_answer:
+                        e.target.value as
+                          | "A"
+                          | "B"
+                          | "C"
+                          | "D",
+                    })
+                  }
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none focus:border-blue-400"
+                >
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="D">D</option>
+                </select>
               </label>
 
-              <input
-                type="number"
-                min="1"
-                value={form.score}
-                onChange={(e) =>
-                  updateForm(
-                    "score",
-                    Number(e.target.value)
-                  )
-                }
-                className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
-              />
-            </div>
-          </div>
 
-          {/* SAVE */}
-          <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:justify-end">
-            {editingId && (
-              <button
-                type="button"
-                onClick={cancelEdit}
-                className="rounded-xl border border-slate-200 px-6 py-3.5 font-bold text-slate-600 hover:bg-slate-50"
-              >
-                ยกเลิก
-              </button>
-            )}
+              <label>
+                <div className="mb-2 text-sm font-black">
+                  คะแนนข้อนี้
+                </div>
+
+                <input
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  value={form.score}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      score: e.target.value,
+                    })
+                  }
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none focus:border-blue-400"
+                />
+              </label>
+
+            </div>
+
 
             <button
-              type="button"
-              onClick={saveQuestion}
+              type="submit"
               disabled={saving}
-              className="rounded-xl bg-blue-600 px-7 py-3.5 font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-6 w-full rounded-2xl bg-blue-600 px-5 py-4 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving
                 ? "กำลังบันทึก..."
                 : editingId
                   ? "บันทึกการแก้ไข"
-                  : "+ เพิ่มข้อสอบ"}
+                  : "＋ เพิ่มข้อสอบ"}
             </button>
-          </div>
+
+          </form>
+
         </section>
 
-        {/* QUESTIONS */}
-        <section className="mt-6">
-          <div className="mb-5 flex items-end justify-between gap-4">
-            <div>
-              <p className="font-bold text-blue-600">
-                QUESTION BANK
-              </p>
 
-              <h2 className="mt-1 text-2xl font-black text-slate-900">
-                ข้อสอบทั้งหมด
+        {/* QUESTIONS */}
+
+        <section className="mt-6">
+
+          <div className="mb-4 flex items-end justify-between">
+
+            <div>
+              <div className="text-xs font-black tracking-widest text-blue-600">
+                QUESTIONS
+              </div>
+
+              <h2 className="mt-1 text-xl font-black sm:text-2xl">
+                รายการข้อสอบ
               </h2>
             </div>
 
-            <div className="rounded-full bg-blue-50 px-4 py-2 text-sm font-black text-blue-700">
+            <div className="rounded-full bg-white px-4 py-2 text-xs font-bold text-slate-500 shadow-sm">
               {questions.length} ข้อ
             </div>
+
           </div>
 
+
           {questions.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-20 text-center">
-              <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl bg-blue-50 text-5xl">
-                ❓
+
+            <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+
+              <div className="text-5xl">
+                📝
               </div>
 
-              <h3 className="mt-6 text-xl font-black text-slate-900">
+              <h3 className="mt-4 text-xl font-black">
                 ยังไม่มีข้อสอบ
               </h3>
 
-              <p className="mt-2 text-slate-500">
-                เพิ่มข้อสอบจากแบบฟอร์มด้านบนได้เลย
+              <p className="mt-2 text-sm text-slate-500">
+                เพิ่มข้อสอบจากแบบฟอร์มด้านบน
               </p>
+
             </div>
+
           ) : (
-            <div className="space-y-5">
+
+            <div className="space-y-4">
+
               {questions.map((question) => (
+
                 <article
                   key={question.id}
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+                  className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
                 >
-                  <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
-                    <div className="flex min-w-0 gap-4">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600 font-black text-white">
+
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+
+                    <div className="flex gap-3">
+
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-sm font-black text-white">
                         {question.question_no}
                       </div>
 
-                      <div className="min-w-0">
-                        <h3 className="whitespace-pre-wrap text-lg font-black leading-7 text-slate-900">
+                      <div>
+                        <h3 className="text-base font-black leading-6 sm:text-lg">
                           {question.question_text}
                         </h3>
+
+                        <div className="mt-1 text-xs font-bold text-slate-400">
+                          คะแนน {question.score}
+                        </div>
                       </div>
+
                     </div>
 
+
                     <div className="flex shrink-0 gap-2">
+
                       <button
                         type="button"
                         onClick={() =>
-                          startEdit(question)
+                          editQuestion(question)
                         }
-                        className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                        className="rounded-xl bg-blue-50 px-3 py-2 text-xs font-black text-blue-600 hover:bg-blue-100"
                       >
                         ✏️ แก้ไข
                       </button>
@@ -798,173 +801,77 @@ export default function AdminQuestionsPage() {
                         onClick={() =>
                           deleteQuestion(question)
                         }
-                        className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-600 hover:bg-red-100"
+                        className="rounded-xl bg-red-50 px-3 py-2 text-xs font-black text-red-600 hover:bg-red-100"
                       >
                         🗑 ลบ
                       </button>
+
                     </div>
+
                   </div>
 
-                  <div className="mt-6 grid gap-3 md:grid-cols-2">
-                    <AnswerCard
-                      letter="A"
-                      text={question.choice_a}
-                      correct={
-                        question.correct_answer === "A"
-                      }
-                    />
 
-                    <AnswerCard
-                      letter="B"
-                      text={question.choice_b}
-                      correct={
-                        question.correct_answer === "B"
-                      }
-                    />
+                  <div className="mt-5 grid gap-2 md:grid-cols-2">
 
-                    <AnswerCard
-                      letter="C"
-                      text={question.choice_c}
-                      correct={
-                        question.correct_answer === "C"
-                      }
-                    />
+                    {[
+                      ["A", question.choice_a],
+                      ["B", question.choice_b],
+                      ["C", question.choice_c],
+                      ["D", question.choice_d],
+                    ].map(([letter, text]) => {
 
-                    <AnswerCard
-                      letter="D"
-                      text={question.choice_d}
-                      correct={
-                        question.correct_answer === "D"
-                      }
-                    />
+                      const correct =
+                        letter === question.correct_answer;
+
+                      return (
+                        <div
+                          key={letter}
+                          className={`rounded-2xl border px-4 py-3 text-sm ${
+                            correct
+                              ? "border-emerald-200 bg-emerald-50"
+                              : "border-slate-100 bg-slate-50"
+                          }`}
+                        >
+
+                          <span
+                            className={`mr-2 inline-flex h-7 w-7 items-center justify-center rounded-lg text-xs font-black ${
+                              correct
+                                ? "bg-emerald-600 text-white"
+                                : "bg-white text-slate-500"
+                            }`}
+                          >
+                            {letter}
+                          </span>
+
+                          <span className="font-semibold">
+                            {text}
+                          </span>
+
+                          {correct && (
+                            <span className="ml-2 text-xs font-black text-emerald-600">
+                              ✓ คำตอบ
+                            </span>
+                          )}
+
+                        </div>
+                      );
+
+                    })}
+
                   </div>
 
-                  <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-5">
-                    <span className="rounded-full bg-green-50 px-3 py-1.5 text-xs font-black text-green-700">
-                      ✓ เฉลย {question.correct_answer}
-                    </span>
-
-                    <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-700">
-                      🎯 {question.score} คะแนน
-                    </span>
-                  </div>
                 </article>
+
               ))}
+
             </div>
+
           )}
+
         </section>
+
       </div>
 
-      {/* FOOTER */}
-      <footer className="mt-10 border-t border-slate-200 bg-white">
-        <div className="mx-auto max-w-7xl px-6 py-8 text-center">
-          <div className="font-black text-slate-800">
-            🎓 วารีเทพ Learning Admin
-          </div>
-
-          <p className="mt-2 text-sm text-slate-400">
-            Question Management
-          </p>
-        </div>
-      </footer>
     </main>
-  );
-}
-
-function SummaryCard({
-  icon,
-  label,
-  value,
-}: {
-  icon: string;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-2xl bg-slate-50 p-4">
-      <div className="text-xl">{icon}</div>
-
-      <p className="mt-2 text-xs text-slate-400">
-        {label}
-      </p>
-
-      <p className="mt-1 font-black text-slate-900">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function ChoiceInput({
-  letter,
-  value,
-  onChange,
-}: {
-  letter: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div>
-      <label className="mb-2 flex items-center gap-2 text-sm font-black text-slate-700">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
-          {letter}
-        </span>
-
-        ตัวเลือก {letter}
-      </label>
-
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={`พิมพ์ตัวเลือก ${letter}...`}
-        className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
-      />
-    </div>
-  );
-}
-
-function AnswerCard({
-  letter,
-  text,
-  correct,
-}: {
-  letter: string;
-  text: string;
-  correct: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-2xl border p-4 ${
-        correct
-          ? "border-green-300 bg-green-50"
-          : "border-slate-200 bg-slate-50"
-      }`}
-    >
-      <div className="flex items-start gap-3">
-        <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg font-black ${
-            correct
-              ? "bg-green-600 text-white"
-              : "bg-white text-slate-600"
-          }`}
-        >
-          {letter}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <p className="whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-800">
-            {text}
-          </p>
-
-          {correct && (
-            <p className="mt-1 text-xs font-black text-green-700">
-              ✓ คำตอบที่ถูกต้อง
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
   );
 }
