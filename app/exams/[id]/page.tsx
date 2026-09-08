@@ -67,105 +67,21 @@ export default function ExamPage() {
   const [savingResult, setSavingResult] = useState(false);
   const [resultSaved, setResultSaved] = useState(false);
 
-  async function loadExam() {
-    try {
-      setLoading(true);
-      setError("");
-
-      const { data: examData, error: examError } =
-        await supabase
-          .from("exams")
-          .select("*")
-          .eq("id", examId)
-          .eq("published", true)
-          .single();
-
-      if (examError) {
-        throw new Error(
-          examError.message || "ไม่สามารถโหลดแบบทดสอบได้"
-        );
-      }
-
-      const { data: questionData, error: questionError } =
-        await supabase
-          .from("exam_questions")
-          .select(
-            "id,question_no,question_text,choice_a,choice_b,choice_c,choice_d,correct_answer,score"
-          )
-          .eq("exam_id", examId)
-          .order("question_no", {
-            ascending: true,
-          });
-
-      if (questionError) {
-        throw new Error(
-          questionError.message || "ไม่สามารถโหลดข้อสอบได้"
-        );
-      }
-
-      if (!questionData || questionData.length === 0) {
-        throw new Error("แบบทดสอบนี้ยังไม่มีข้อสอบ");
-      }
-
-      let finalQuestions = questionData as Question[];
-
-      if (examData.shuffle_questions) {
-        finalQuestions = [...finalQuestions].sort(
-          () => Math.random() - 0.5
-        );
-      }
-
-      setExam(examData);
-      setQuestions(finalQuestions);
-
-      setTimeLeft(
-        Number(examData.duration_minutes || 0) * 60
-      );
-    } catch (err) {
-      console.error(err);
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : "ไม่สามารถโหลดแบบทดสอบได้"
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (examId) {
-      void loadExam();
-    }
-  }, [examId]);
-
-  const currentQuestion = questions[currentIndex];
-
-  const answeredCount = useMemo(
-    () => Object.keys(answers).length,
-    [answers]
+  // =========================================================
+  // ใช้สำหรับกรณีสมาชิกสอบผ่านบทนี้แล้ว
+  // =========================================================
+  const [alreadyPassed, setAlreadyPassed] = useState(false);
+  const [passedPercent, setPassedPercent] = useState<number | null>(
+    null
   );
 
-  function selectAnswer(
-    value: "A" | "B" | "C" | "D"
-  ) {
-    if (!currentQuestion || finished || savingResult) return;
+  const [checkingPreviousResult, setCheckingPreviousResult] =
+    useState(true);
 
-    setAnswers((current) => ({
-      ...current,
-      [currentQuestion.id]: value,
-    }));
-  }
-
+  // =========================================================
+  // ดึงสมาชิกปัจจุบัน
+  // =========================================================
   async function getCurrentMember(): Promise<Member | null> {
-    /*
-      ดึงสมาชิกจาก Supabase โดยตรง
-
-      วิธีนี้รองรับทั้งกรณีที่ระบบของคุณเก็บชื่อเป็น
-      name / full_name / first_name + last_name
-    */
-
     try {
       const memberIdKeys = [
         "warithep_learning_member_id",
@@ -196,12 +112,6 @@ export default function ExamPage() {
           return data as Member;
         }
       }
-
-      /*
-        ถ้าไม่มี member_id
-        ลองอ่านข้อมูลสมาชิกที่หน้า Login เคยเก็บไว้
-        แล้วใช้ชื่อไปค้น Supabase
-      */
 
       const nameKeys = [
         "warithep_learning_login_name",
@@ -264,28 +174,257 @@ export default function ExamPage() {
     }
   }
 
+  // =========================================================
+  // ตรวจสอบว่าผ่าน "บทนี้" แล้วหรือยัง
+  //
+  // สำคัญ:
+  // examId = บท/แบบทดสอบปัจจุบัน
+  // memberId = สมาชิกปัจจุบัน
+  //
+  // ถ้ามีผลสอบผ่านของคู่นี้ = ล็อกเฉพาะบทนี้
+  // =========================================================
+  async function checkPassedBefore(
+    currentExamId: string
+  ): Promise<boolean> {
+    try {
+      setCheckingPreviousResult(true);
+
+      const member = await getCurrentMember();
+
+      if (!member?.id) {
+        console.warn(
+          "ไม่พบ member id จึงไม่สามารถตรวจสอบประวัติการสอบได้"
+        );
+
+        setAlreadyPassed(false);
+        setPassedPercent(null);
+
+        return false;
+      }
+
+      const { data, error } = await supabase
+        .from("exam_results")
+        .select("id, percent, passed, created_at")
+        .eq("exam_id", currentExamId)
+        .eq("member_id", member.id)
+        .eq("passed", true)
+        .order("created_at", {
+          ascending: false,
+        })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        console.error(
+          "ตรวจสอบประวัติการสอบไม่สำเร็จ:",
+          error
+        );
+
+        setAlreadyPassed(false);
+        setPassedPercent(null);
+
+        return false;
+      }
+
+      if (data) {
+        setAlreadyPassed(true);
+        setPassedPercent(Number(data.percent || 0));
+
+        return true;
+      }
+
+      setAlreadyPassed(false);
+      setPassedPercent(null);
+
+      return false;
+    } catch (err) {
+      console.error(
+        "checkPassedBefore error:",
+        err
+      );
+
+      setAlreadyPassed(false);
+      setPassedPercent(null);
+
+      return false;
+    } finally {
+      setCheckingPreviousResult(false);
+    }
+  }
+
+  // =========================================================
+  // โหลดแบบทดสอบ
+  // =========================================================
+  async function loadExam() {
+    try {
+      setLoading(true);
+      setError("");
+
+      // -----------------------------------------------------
+      // 1. โหลดข้อมูลแบบทดสอบก่อน
+      // -----------------------------------------------------
+      const { data: examData, error: examError } =
+        await supabase
+          .from("exams")
+          .select("*")
+          .eq("id", examId)
+          .eq("published", true)
+          .single();
+
+      if (examError) {
+        throw new Error(
+          examError.message ||
+            "ไม่สามารถโหลดแบบทดสอบได้"
+        );
+      }
+
+      if (!examData) {
+        throw new Error(
+          "ไม่พบข้อมูลแบบทดสอบ"
+        );
+      }
+
+      setExam(examData as Exam);
+
+      // -----------------------------------------------------
+      // 2. ตรวจว่าผ่านบทนี้แล้วหรือยัง
+      // -----------------------------------------------------
+      const hasPassed = await checkPassedBefore(
+        examId
+      );
+
+      // ถ้าผ่านแล้ว ไม่ต้องโหลดข้อสอบ
+      if (hasPassed) {
+        setQuestions([]);
+        setLoading(false);
+        return;
+      }
+
+      // -----------------------------------------------------
+      // 3. โหลดข้อสอบ
+      // -----------------------------------------------------
+      const {
+        data: questionData,
+        error: questionError,
+      } = await supabase
+        .from("exam_questions")
+        .select(
+          "id,question_no,question_text,choice_a,choice_b,choice_c,choice_d,correct_answer,score"
+        )
+        .eq("exam_id", examId)
+        .order("question_no", {
+          ascending: true,
+        });
+
+      if (questionError) {
+        throw new Error(
+          questionError.message ||
+            "ไม่สามารถโหลดข้อสอบได้"
+        );
+      }
+
+      if (
+        !questionData ||
+        questionData.length === 0
+      ) {
+        throw new Error(
+          "แบบทดสอบนี้ยังไม่มีข้อสอบ"
+        );
+      }
+
+      let finalQuestions =
+        questionData as Question[];
+
+      if (examData.shuffle_questions) {
+        finalQuestions = [...finalQuestions].sort(
+          () => Math.random() - 0.5
+        );
+      }
+
+      setQuestions(finalQuestions);
+
+      setTimeLeft(
+        Number(
+          examData.duration_minutes || 0
+        ) * 60
+      );
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "ไม่สามารถโหลดแบบทดสอบได้"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (examId) {
+      void loadExam();
+    }
+  }, [examId]);
+
+  const currentQuestion =
+    questions[currentIndex];
+
+  const answeredCount = useMemo(
+    () => Object.keys(answers).length,
+    [answers]
+  );
+
+  // =========================================================
+  // เลือกคำตอบ
+  // =========================================================
+  function selectAnswer(
+    value: "A" | "B" | "C" | "D"
+  ) {
+    if (
+      !currentQuestion ||
+      finished ||
+      savingResult ||
+      alreadyPassed
+    ) {
+      return;
+    }
+
+    setAnswers((current) => ({
+      ...current,
+      [currentQuestion.id]: value,
+    }));
+  }
+
+  // =========================================================
+  // บันทึกผลสอบ
+  // =========================================================
   async function saveExamResult(
     finalScore: number,
     finalPercent: number,
     finalMaxScore: number
   ) {
-    if (!exam || resultSaved || savingResult) {
+    if (
+      !exam ||
+      resultSaved ||
+      savingResult
+    ) {
       return;
     }
 
     try {
       setSavingResult(true);
 
-      const member = await getCurrentMember();
+      const member =
+        await getCurrentMember();
 
       const memberName =
         member?.name ||
         member?.full_name ||
-        (
-          member?.first_name && member?.last_name
-            ? `${member.first_name} ${member.last_name}`
-            : ""
-        ) ||
+        (member?.first_name &&
+        member?.last_name
+          ? `${member.first_name} ${member.last_name}`
+          : "") ||
         "ไม่ระบุชื่อ";
 
       const department =
@@ -295,7 +434,9 @@ export default function ExamPage() {
 
       const passed =
         finalPercent >=
-        Number(exam.passing_percent || 0);
+        Number(
+          exam.passing_percent || 0
+        );
 
       const { error } = await supabase
         .from("exam_results")
@@ -324,6 +465,14 @@ export default function ExamPage() {
       }
 
       setResultSaved(true);
+
+      // -----------------------------------------------------
+      // ถ้าผ่าน ให้ล็อกบทนี้ทันที
+      // -----------------------------------------------------
+      if (passed) {
+        setAlreadyPassed(true);
+        setPassedPercent(finalPercent);
+      }
     } catch (err) {
       console.error(err);
 
@@ -335,8 +484,17 @@ export default function ExamPage() {
     }
   }
 
+  // =========================================================
+  // คำนวณคะแนน
+  // =========================================================
   async function calculateResult() {
-    if (!exam || finished || savingResult) return;
+    if (
+      !exam ||
+      finished ||
+      savingResult
+    ) {
+      return;
+    }
 
     let total = 0;
     let calculatedMaxScore = 0;
@@ -357,7 +515,9 @@ export default function ExamPage() {
 
     const resultPercent =
       calculatedMaxScore > 0
-        ? (total / calculatedMaxScore) * 100
+        ? (total /
+            calculatedMaxScore) *
+          100
         : 0;
 
     setScore(total);
@@ -372,6 +532,9 @@ export default function ExamPage() {
     );
   }
 
+  // =========================================================
+  // ข้อต่อไป / ส่งคำตอบ
+  // =========================================================
   async function nextQuestion() {
     if (!currentQuestion) return;
 
@@ -380,8 +543,13 @@ export default function ExamPage() {
       return;
     }
 
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex((current) => current + 1);
+    if (
+      currentIndex <
+      questions.length - 1
+    ) {
+      setCurrentIndex(
+        (current) => current + 1
+      );
 
       window.scrollTo({
         top: 0,
@@ -392,10 +560,15 @@ export default function ExamPage() {
     }
   }
 
+  // =========================================================
+  // ข้อก่อนหน้า
+  // =========================================================
   function previousQuestion() {
     if (currentIndex === 0) return;
 
-    setCurrentIndex((current) => current - 1);
+    setCurrentIndex(
+      (current) => current - 1
+    );
 
     window.scrollTo({
       top: 0,
@@ -403,56 +576,85 @@ export default function ExamPage() {
     });
   }
 
+  // =========================================================
+  // Timer
+  // =========================================================
   useEffect(() => {
     if (
       loading ||
+      checkingPreviousResult ||
       finished ||
       savingResult ||
+      alreadyPassed ||
       timeLeft <= 0
     ) {
       return;
     }
 
-    const timer = window.setInterval(() => {
-      setTimeLeft((current) => {
-        if (current <= 1) {
-          window.clearInterval(timer);
+    const timer =
+      window.setInterval(() => {
+        setTimeLeft((current) => {
+          if (current <= 1) {
+            window.clearInterval(
+              timer
+            );
 
-          setTimeout(() => {
-            void calculateResult();
-          }, 0);
+            setTimeout(() => {
+              void calculateResult();
+            }, 0);
 
-          return 0;
-        }
+            return 0;
+          }
 
-        return current - 1;
-      });
-    }, 1000);
+          return current - 1;
+        });
+      }, 1000);
 
     return () => {
       window.clearInterval(timer);
     };
   }, [
     loading,
+    checkingPreviousResult,
     finished,
     savingResult,
+    alreadyPassed,
     timeLeft,
   ]);
 
+  // =========================================================
+  // เวลา
+  // =========================================================
   function formatTime(seconds: number) {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
+    const minutes = Math.floor(
+      seconds / 60
+    );
 
-    return `${String(minutes).padStart(2, "0")}:${String(
+    const remainingSeconds =
+      seconds % 60;
+
+    return `${String(minutes).padStart(
+      2,
+      "0"
+    )}:${String(
       remainingSeconds
     ).padStart(2, "0")}`;
   }
 
+  // =========================================================
+  // โหลดใหม่สำหรับคนที่ไม่ผ่าน
+  // =========================================================
   function restartExam() {
     window.location.reload();
   }
 
-  if (loading) {
+  // =========================================================
+  // LOADING
+  // =========================================================
+  if (
+    loading ||
+    checkingPreviousResult
+  ) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f6f9fd] p-6">
         <div className="rounded-3xl bg-white px-10 py-12 text-center shadow-sm">
@@ -461,13 +663,72 @@ export default function ExamPage() {
           </div>
 
           <div className="mt-4 text-sm font-bold text-slate-500">
-            กำลังโหลดแบบทดสอบ...
+            กำลังตรวจสอบสิทธิ์การทำแบบทดสอบ...
           </div>
         </div>
       </main>
     );
   }
 
+  // =========================================================
+  // ผ่านบทนี้แล้ว
+  // =========================================================
+  if (
+    alreadyPassed &&
+    !finished &&
+    exam
+  ) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f6f9fd] p-6">
+        <div className="w-full max-w-2xl overflow-hidden rounded-[30px] border border-emerald-200 bg-white shadow-xl">
+          <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 px-6 py-14 text-center sm:px-10">
+            <div className="text-7xl">
+              🎉
+            </div>
+
+            <h1 className="mt-5 text-3xl font-black text-white sm:text-4xl">
+              ผ่านแบบทดสอบแล้ว
+            </h1>
+
+            <p className="mt-3 text-sm font-medium text-white/85">
+              {exam.title}
+            </p>
+          </div>
+
+          <div className="p-6 sm:p-10">
+            <div className="rounded-3xl bg-emerald-50 p-6 text-center">
+              <div className="text-sm font-bold text-emerald-700">
+                คุณผ่านแบบทดสอบบทนี้เรียบร้อยแล้ว
+              </div>
+
+              {passedPercent !== null && (
+                <div className="mt-3 text-4xl font-black text-emerald-700">
+                  {passedPercent.toFixed(1)}%
+                </div>
+              )}
+
+              <div className="mt-2 text-xs text-emerald-600">
+                ระบบไม่อนุญาตให้ทำแบบทดสอบบทนี้ซ้ำ
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href="/exams"
+                className="flex flex-1 items-center justify-center rounded-2xl bg-blue-600 px-5 py-3.5 text-sm font-black text-white hover:bg-blue-700"
+              >
+                ← กลับหน้าแบบทดสอบ
+              </Link>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // =========================================================
+  // ERROR
+  // =========================================================
   if (
     error ||
     !exam ||
@@ -500,10 +761,15 @@ export default function ExamPage() {
     );
   }
 
+  // =========================================================
+  // RESULT
+  // =========================================================
   if (finished) {
     const passed =
       percent >=
-      Number(exam.passing_percent || 0);
+      Number(
+        exam.passing_percent || 0
+      );
 
     return (
       <main className="min-h-screen bg-[#f6f9fd] px-4 py-8 sm:px-6 sm:py-12">
@@ -517,7 +783,9 @@ export default function ExamPage() {
               }`}
             >
               <div className="text-6xl">
-                {passed ? "🎉" : "📝"}
+                {passed
+                  ? "🎉"
+                  : "📝"}
               </div>
 
               <h1 className="mt-5 text-3xl font-black text-white sm:text-4xl">
@@ -605,7 +873,9 @@ export default function ExamPage() {
 
                         return (
                           <div
-                            key={question.id}
+                            key={
+                              question.id
+                            }
                             className={`rounded-xl p-4 ${
                               correct
                                 ? "bg-emerald-50"
@@ -614,7 +884,9 @@ export default function ExamPage() {
                           >
                             <div className="text-sm font-black">
                               ข้อ{" "}
-                              {question.question_no}
+                              {
+                                question.question_no
+                              }
                             </div>
 
                             <div className="mt-1 text-xs text-slate-600">
@@ -645,13 +917,17 @@ export default function ExamPage() {
                   ← แบบทดสอบทั้งหมด
                 </Link>
 
-                <button
-                  type="button"
-                  onClick={restartExam}
-                  className="flex flex-1 items-center justify-center rounded-2xl bg-blue-600 px-5 py-3.5 text-sm font-black text-white hover:bg-blue-700"
-                >
-                  🔄 ทำแบบทดสอบอีกครั้ง
-                </button>
+                {!passed && (
+                  <button
+                    type="button"
+                    onClick={
+                      restartExam
+                    }
+                    className="flex flex-1 items-center justify-center rounded-2xl bg-blue-600 px-5 py-3.5 text-sm font-black text-white hover:bg-blue-700"
+                  >
+                    🔄 ทำแบบทดสอบอีกครั้ง
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -660,6 +936,9 @@ export default function ExamPage() {
     );
   }
 
+  // =========================================================
+  // EXAM
+  // =========================================================
   return (
     <main className="min-h-screen bg-[#f6f9fd] text-slate-900">
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
@@ -689,7 +968,9 @@ export default function ExamPage() {
             </div>
 
             <div className="text-lg font-black tabular-nums">
-              {formatTime(timeLeft)}
+              {formatTime(
+                timeLeft
+              )}
             </div>
           </div>
         </div>
@@ -699,12 +980,14 @@ export default function ExamPage() {
         <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between text-xs font-bold">
             <span>
-              ข้อ {currentIndex + 1} /{" "}
+              ข้อ{" "}
+              {currentIndex + 1} /{" "}
               {questions.length}
             </span>
 
             <span className="text-blue-600">
-              ตอบแล้ว {answeredCount} /{" "}
+              ตอบแล้ว{" "}
+              {answeredCount} /{" "}
               {questions.length}
             </span>
           </div>
@@ -726,68 +1009,90 @@ export default function ExamPage() {
         <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
           <div className="flex items-start gap-4">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-sm font-black text-white">
-              {currentQuestion.question_no}
+              {
+                currentQuestion.question_no
+              }
             </div>
 
             <h2 className="text-lg font-black leading-7 sm:text-2xl sm:leading-9">
-              {currentQuestion.question_text}
+              {
+                currentQuestion.question_text
+              }
             </h2>
           </div>
 
           <div className="mt-7 space-y-3">
             {[
-              ["A", currentQuestion.choice_a],
-              ["B", currentQuestion.choice_b],
-              ["C", currentQuestion.choice_c],
-              ["D", currentQuestion.choice_d],
-            ].map(([letter, text]) => {
-              const selected =
-                answers[
-                  currentQuestion.id
-                ] === letter;
+              [
+                "A",
+                currentQuestion.choice_a,
+              ],
+              [
+                "B",
+                currentQuestion.choice_b,
+              ],
+              [
+                "C",
+                currentQuestion.choice_c,
+              ],
+              [
+                "D",
+                currentQuestion.choice_d,
+              ],
+            ].map(
+              ([letter, text]) => {
+                const selected =
+                  answers[
+                    currentQuestion.id
+                  ] === letter;
 
-              return (
-                <button
-                  key={letter}
-                  type="button"
-                  onClick={() =>
-                    selectAnswer(
-                      letter as
-                        | "A"
-                        | "B"
-                        | "C"
-                        | "D"
-                    )
-                  }
-                  className={`flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all sm:p-5 ${
-                    selected
-                      ? "border-blue-500 bg-blue-50 shadow-md shadow-blue-500/10"
-                      : "border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50/40"
-                  }`}
-                >
-                  <span
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-black ${
+                return (
+                  <button
+                    key={letter}
+                    type="button"
+                    onClick={() =>
+                      selectAnswer(
+                        letter as
+                          | "A"
+                          | "B"
+                          | "C"
+                          | "D"
+                      )
+                    }
+                    className={`flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all sm:p-5 ${
                       selected
-                        ? "bg-blue-600 text-white"
-                        : "bg-slate-100 text-slate-600"
+                        ? "border-blue-500 bg-blue-50 shadow-md shadow-blue-500/10"
+                        : "border-slate-200 bg-white hover:border-blue-300 hover:bg-blue-50/40"
                     }`}
                   >
-                    {letter}
-                  </span>
+                    <span
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-black ${
+                        selected
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {letter}
+                    </span>
 
-                  <span className="text-sm font-semibold leading-6 sm:text-base">
-                    {text}
-                  </span>
-                </button>
-              );
-            })}
+                    <span className="text-sm font-semibold leading-6 sm:text-base">
+                      {text}
+                    </span>
+                  </button>
+                );
+              }
+            )}
           </div>
 
           <div className="mt-8 flex gap-3">
             <button
               type="button"
-              onClick={previousQuestion}
-              disabled={currentIndex === 0}
+              onClick={
+                previousQuestion
+              }
+              disabled={
+                currentIndex === 0
+              }
               className="rounded-2xl border border-slate-200 px-5 py-3.5 text-sm font-black text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
             >
               ← ก่อนหน้า
@@ -796,7 +1101,9 @@ export default function ExamPage() {
             <button
               type="button"
               onClick={nextQuestion}
-              disabled={savingResult}
+              disabled={
+                savingResult
+              }
               className="flex-1 rounded-2xl bg-blue-600 px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-blue-500/20 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {savingResult
