@@ -32,381 +32,29 @@ type Video = {
   department: string;
 };
 
+type SavedMember = {
+  id?: string;
+  name?: string;
+  full_name?: string;
+  member_name?: string;
+};
+
 export default function ProfilePage() {
   const router = useRouter();
 
-  const [member, setMember] =
-    useState<Member | null>(null);
-
-  const [progressRows, setProgressRows] =
-    useState<ProgressRow[]>([]);
-
-  const [videos, setVideos] =
-    useState<Video[]>([]);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [error, setError] =
-    useState("");
+  const [member, setMember] = useState<Member | null>(null);
+  const [progressRows, setProgressRows] = useState<ProgressRow[]>([]);
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   /*
   |--------------------------------------------------------------------------
-  | หา Member ปัจจุบัน
+  | โหลดความคืบหน้าการเรียน
   |--------------------------------------------------------------------------
   */
 
-  async function getCurrentMember(): Promise<Member | null> {
-    try {
-      /*
-      |--------------------------------------------------------------------------
-      | 1. ลองหา Member ID จาก localStorage
-      |--------------------------------------------------------------------------
-      */
-
-      const memberIdKeys = [
-        "warithep_learning_member_id",
-        "warithep_member_id",
-        "member_id",
-        "current_member_id",
-      ];
-
-      for (const key of memberIdKeys) {
-        const storedId =
-          localStorage.getItem(key);
-
-        if (!storedId) continue;
-
-        const { data, error } =
-          await supabase
-            .from("members")
-            .select(
-              "id, name, position, branch, department"
-            )
-            .eq("id", storedId)
-            .maybeSingle();
-
-        if (!error && data) {
-          return {
-            id: data.id,
-            name: data.name || "",
-            position: data.position || "",
-            branch: data.branch || "",
-            department: data.department || "",
-          };
-        }
-      }
-
-      /*
-      |--------------------------------------------------------------------------
-      | 2. ลองอ่านข้อมูลสมาชิกแบบ JSON
-      |--------------------------------------------------------------------------
-      */
-
-      const memberKeys = [
-        "warithep_learning_member",
-        "warithep_learning_user",
-        "current_member",
-        "currentMember",
-        "member",
-        "user",
-      ];
-
-      for (const key of memberKeys) {
-        const savedValue =
-          localStorage.getItem(key);
-
-        if (!savedValue) continue;
-
-        let parsedValue: any = null;
-
-        try {
-          parsedValue =
-            JSON.parse(savedValue);
-        } catch {
-          parsedValue = null;
-        }
-
-        /*
-        | ถ้าเป็น Object
-        */
-
-        if (
-          parsedValue &&
-          typeof parsedValue === "object"
-        ) {
-          /*
-          | ถ้ามี ID ให้ใช้ ID
-          */
-
-          if (parsedValue.id) {
-            const { data, error } =
-              await supabase
-                .from("members")
-                .select(
-                  "id, name, position, branch, department"
-                )
-                .eq(
-                  "id",
-                  parsedValue.id
-                )
-                .maybeSingle();
-
-            if (!error && data) {
-              return {
-                id: data.id,
-                name: data.name || "",
-                position:
-                  data.position || "",
-                branch:
-                  data.branch || "",
-                department:
-                  data.department || "",
-              };
-            }
-          }
-
-          /*
-          | ถ้ามีชื่อ ให้ใช้ชื่อค้นหา
-          */
-
-          const savedName =
-            parsedValue.name ||
-            parsedValue.full_name ||
-            parsedValue.member_name ||
-            "";
-
-          if (savedName) {
-            const { data, error } =
-              await supabase
-                .from("members")
-                .select(
-                  "id, name, position, branch, department"
-                )
-                .eq(
-                  "name",
-                  String(savedName).trim()
-                )
-                .maybeSingle();
-
-            if (!error && data) {
-              return {
-                id: data.id,
-                name:
-                  data.name || "",
-                position:
-                  data.position || "",
-                branch:
-                  data.branch || "",
-                department:
-                  data.department || "",
-              };
-            }
-          }
-        }
-
-        /*
-        | ถ้าเป็นข้อความธรรมดา
-        */
-
-        const plainName =
-          typeof parsedValue === "string"
-            ? parsedValue.trim()
-            : savedValue.trim();
-
-        if (!plainName) continue;
-
-        const { data, error } =
-          await supabase
-            .from("members")
-            .select(
-              "id, name, position, branch, department"
-            )
-            .eq(
-              "name",
-              plainName
-            )
-            .maybeSingle();
-
-        if (!error && data) {
-          return {
-            id: data.id,
-            name: data.name || "",
-            position:
-              data.position || "",
-            branch:
-              data.branch || "",
-            department:
-              data.department || "",
-          };
-        }
-      }
-
-      /*
-      |--------------------------------------------------------------------------
-      | 3. ใช้ชื่อจาก Login โดยตรง
-      |--------------------------------------------------------------------------
-      */
-
-      const loginNameKeys = [
-        "warithep_learning_login_name",
-        "warithep_login_name",
-        "login_name",
-      ];
-
-      for (const key of loginNameKeys) {
-        const loginName =
-          localStorage.getItem(key);
-
-        if (!loginName?.trim()) continue;
-
-        const cleanName =
-          loginName.trim();
-
-        const { data, error } =
-          await supabase
-            .from("members")
-            .select(
-              "id, name, position, branch, department"
-            )
-            .eq(
-              "name",
-              cleanName
-            )
-            .maybeSingle();
-
-        if (!error && data) {
-          return {
-            id: data.id,
-            name: data.name || "",
-            position:
-              data.position || "",
-            branch:
-              data.branch || "",
-            department:
-              data.department || "",
-          };
-        }
-      }
-
-      return null;
-    } catch (err) {
-      console.error(
-        "Get current member error:",
-        err
-      );
-
-      return null;
-    }
-  }
-
-  /*
-  |--------------------------------------------------------------------------
-  | โหลดสมาชิก + ความคืบหน้า
-  |--------------------------------------------------------------------------
-  */
-
-  useEffect(() => {
-    async function loadProfile() {
-      setLoading(true);
-      setError("");
-
-      try {
-        /*
-        |--------------------------------------------------------------------------
-        | หา Member ปัจจุบัน
-        |--------------------------------------------------------------------------
-        */
-
-        const memberData =
-          await getCurrentMember();
-
-        /*
-        |--------------------------------------------------------------------------
-        | ไม่พบสมาชิก
-        |--------------------------------------------------------------------------
-        */
-
-        if (!memberData) {
-          setMember(null);
-
-          console.log(
-            "ไม่พบข้อมูลสมาชิกจาก Login"
-          );
-
-          setLoading(false);
-          return;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | พบสมาชิก
-        |--------------------------------------------------------------------------
-        */
-
-        setMember(memberData);
-
-        /*
-        |--------------------------------------------------------------------------
-        | บันทึกข้อมูลกลับ localStorage
-        |--------------------------------------------------------------------------
-        */
-
-        localStorage.setItem(
-          "warithep_learning_member",
-          JSON.stringify(memberData)
-        );
-
-        if (memberData.id) {
-          localStorage.setItem(
-            "warithep_learning_member_id",
-            memberData.id
-          );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | โหลดความคืบหน้า
-        |--------------------------------------------------------------------------
-        */
-
-        if (memberData.id) {
-          await loadLearningProgress(
-            memberData.id
-          );
-        }
-      } catch (err) {
-        console.error(
-          "Load Profile Error:",
-          err
-        );
-
-        setError(
-          "ไม่สามารถโหลดข้อมูลโปรไฟล์ได้"
-        );
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    void loadProfile();
-  }, []);
-
-  /*
-  |--------------------------------------------------------------------------
-  | โหลดความคืบหน้า
-  |--------------------------------------------------------------------------
-  */
-
-  async function loadLearningProgress(
-    memberId: string
-  ) {
-    /*
-    |--------------------------------------------------------------------------
-    | Progress
-    |--------------------------------------------------------------------------
-    */
-
+  async function loadLearningProgress(memberId: string) {
     const {
       data: progressData,
       error: progressError,
@@ -415,47 +63,39 @@ export default function ProfilePage() {
       .select(
         "id, video_id, watched_seconds, duration_seconds, progress_percent, completed, last_watched_at"
       )
-      .eq(
-        "member_id",
-        memberId
-      )
-      .order(
-        "last_watched_at",
-        {
-          ascending: false,
-        }
-      );
+      .eq("member_id", memberId)
+      .order("last_watched_at", {
+        ascending: false,
+      });
 
     if (progressError) {
       console.error(
         "โหลด video_progress ไม่สำเร็จ:",
         progressError
       );
-
       return;
     }
 
-    const rows =
-      (progressData || []) as ProgressRow[];
+    const rows: ProgressRow[] = (progressData || []).map(
+      (item) => ({
+        id: item.id,
+        video_id: item.video_id,
+        watched_seconds: Number(item.watched_seconds || 0),
+        duration_seconds: Number(item.duration_seconds || 0),
+        progress_percent: Number(
+          item.progress_percent || 0
+        ),
+        completed: Boolean(item.completed),
+        last_watched_at: item.last_watched_at,
+      })
+    );
 
     setProgressRows(rows);
-
-    /*
-    |--------------------------------------------------------------------------
-    | ไม่มีประวัติวิดีโอ
-    |--------------------------------------------------------------------------
-    */
 
     if (rows.length === 0) {
       setVideos([]);
       return;
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | เอา video_id ไปหาข้อมูลวิดีโอ
-    |--------------------------------------------------------------------------
-    */
 
     const videoIds = rows.map(
       (item) => item.video_id
@@ -476,14 +116,334 @@ export default function ProfilePage() {
         "โหลดข้อมูลวิดีโอไม่สำเร็จ:",
         videoError
       );
-
       return;
     }
 
-    setVideos(
-      (videoData || []) as Video[]
-    );
+    const loadedVideos: Video[] = (
+      videoData || []
+    ).map((item) => ({
+      id: item.id,
+      title: item.title || "",
+      cloudflare_video_id:
+        item.cloudflare_video_id || "",
+      thumbnail_url:
+        item.thumbnail_url || null,
+      duration_seconds:
+        item.duration_seconds !== null &&
+        item.duration_seconds !== undefined
+          ? Number(item.duration_seconds)
+          : null,
+      department: item.department || "",
+    }));
+
+    setVideos(loadedVideos);
   }
+
+  /*
+  |--------------------------------------------------------------------------
+  | หา Member ปัจจุบัน
+  |--------------------------------------------------------------------------
+  */
+
+  async function getCurrentMember(): Promise<Member | null> {
+    try {
+      /*
+      |--------------------------------------------------------------------------
+      | 1. หา Member จาก ID
+      |--------------------------------------------------------------------------
+      */
+
+      const memberIdKeys = [
+        "warithep_learning_member_id",
+        "warithep_member_id",
+        "member_id",
+        "current_member_id",
+      ];
+
+      for (const key of memberIdKeys) {
+        const storedId =
+          localStorage.getItem(key);
+
+        if (!storedId) continue;
+
+        const {
+          data,
+          error: memberError,
+        } = await supabase
+          .from("members")
+          .select(
+            "id, name, position, branch, department"
+          )
+          .eq("id", storedId)
+          .maybeSingle();
+
+        if (!memberError && data) {
+          return {
+            id: data.id,
+            name: data.name || "",
+            position: data.position || "",
+            branch: data.branch || "",
+            department: data.department || "",
+          };
+        }
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | 2. อ่านข้อมูลสมาชิกจาก localStorage
+      |--------------------------------------------------------------------------
+      */
+
+      const memberKeys = [
+        "warithep_learning_member",
+        "warithep_learning_user",
+        "current_member",
+        "currentMember",
+        "member",
+        "user",
+      ];
+
+      for (const key of memberKeys) {
+        const savedValue =
+          localStorage.getItem(key);
+
+        if (!savedValue) continue;
+
+        let parsedValue: unknown = null;
+
+        try {
+          parsedValue = JSON.parse(savedValue);
+        } catch {
+          parsedValue = null;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | ถ้าเป็น Object
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+          parsedValue &&
+          typeof parsedValue === "object" &&
+          !Array.isArray(parsedValue)
+        ) {
+          const savedMember =
+            parsedValue as SavedMember;
+
+          /*
+          |--------------------------------------------------------------------------
+          | มี ID
+          |--------------------------------------------------------------------------
+          */
+
+          if (savedMember.id) {
+            const {
+              data,
+              error: memberError,
+            } = await supabase
+              .from("members")
+              .select(
+                "id, name, position, branch, department"
+              )
+              .eq("id", savedMember.id)
+              .maybeSingle();
+
+            if (!memberError && data) {
+              return {
+                id: data.id,
+                name: data.name || "",
+                position: data.position || "",
+                branch: data.branch || "",
+                department: data.department || "",
+              };
+            }
+          }
+
+          /*
+          |--------------------------------------------------------------------------
+          | มีชื่อ
+          |--------------------------------------------------------------------------
+          */
+
+          const savedName =
+            savedMember.name ||
+            savedMember.full_name ||
+            savedMember.member_name ||
+            "";
+
+          if (savedName) {
+            const cleanName =
+              String(savedName).trim();
+
+            const {
+              data,
+              error: memberError,
+            } = await supabase
+              .from("members")
+              .select(
+                "id, name, position, branch, department"
+              )
+              .eq("name", cleanName)
+              .maybeSingle();
+
+            if (!memberError && data) {
+              return {
+                id: data.id,
+                name: data.name || "",
+                position: data.position || "",
+                branch: data.branch || "",
+                department: data.department || "",
+              };
+            }
+          }
+
+          continue;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | ถ้าเป็นข้อความธรรมดา
+        |--------------------------------------------------------------------------
+        */
+
+        const plainName =
+          typeof parsedValue === "string"
+            ? parsedValue.trim()
+            : savedValue.trim();
+
+        if (!plainName) continue;
+
+        const {
+          data,
+          error: memberError,
+        } = await supabase
+          .from("members")
+          .select(
+            "id, name, position, branch, department"
+          )
+          .eq("name", plainName)
+          .maybeSingle();
+
+        if (!memberError && data) {
+          return {
+            id: data.id,
+            name: data.name || "",
+            position: data.position || "",
+            branch: data.branch || "",
+            department: data.department || "",
+          };
+        }
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | 3. ใช้ชื่อจาก Login
+      |--------------------------------------------------------------------------
+      */
+
+      const loginNameKeys = [
+        "warithep_learning_login_name",
+        "warithep_login_name",
+        "login_name",
+      ];
+
+      for (const key of loginNameKeys) {
+        const loginName =
+          localStorage.getItem(key);
+
+        if (!loginName?.trim()) continue;
+
+        const cleanName =
+          loginName.trim();
+
+        const {
+          data,
+          error: memberError,
+        } = await supabase
+          .from("members")
+          .select(
+            "id, name, position, branch, department"
+          )
+          .eq("name", cleanName)
+          .maybeSingle();
+
+        if (!memberError && data) {
+          return {
+            id: data.id,
+            name: data.name || "",
+            position: data.position || "",
+            branch: data.branch || "",
+            department: data.department || "",
+          };
+        }
+      }
+
+      return null;
+    } catch (err) {
+      console.error(
+        "Get current member error:",
+        err
+      );
+
+      return null;
+    }
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | โหลด Profile
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    async function loadProfile() {
+      setLoading(true);
+      setError("");
+
+      try {
+        const memberData =
+          await getCurrentMember();
+
+        if (!memberData) {
+          setMember(null);
+          setLoading(false);
+          return;
+        }
+
+        setMember(memberData);
+
+        localStorage.setItem(
+          "warithep_learning_member",
+          JSON.stringify(memberData)
+        );
+
+        if (memberData.id) {
+          localStorage.setItem(
+            "warithep_learning_member_id",
+            memberData.id
+          );
+
+          await loadLearningProgress(
+            memberData.id
+          );
+        }
+      } catch (err) {
+        console.error(
+          "Load Profile Error:",
+          err
+        );
+
+        setError(
+          "ไม่สามารถโหลดข้อมูลโปรไฟล์ได้"
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void loadProfile();
+  }, []);
 
   /*
   |--------------------------------------------------------------------------
@@ -522,22 +482,17 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-slate-50">
-
         <header className="border-b border-slate-200 bg-white">
-
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
-
             <Link
               href="/dashboard"
               className="flex items-center gap-3"
             >
-
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-2xl shadow-md">
                 🎓
               </div>
 
               <div>
-
                 <div className="font-black text-slate-900">
                   วารีเทพ
                 </div>
@@ -545,19 +500,13 @@ export default function ProfilePage() {
                 <div className="text-xs font-bold tracking-widest text-blue-600">
                   LEARNING
                 </div>
-
               </div>
-
             </Link>
-
           </div>
-
         </header>
 
         <div className="flex min-h-[70vh] items-center justify-center px-6">
-
           <div className="text-center">
-
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100 text-3xl">
               👤
             </div>
@@ -565,11 +514,8 @@ export default function ProfilePage() {
             <p className="mt-4 font-bold text-slate-600">
               กำลังโหลดข้อมูลสมาชิก...
             </p>
-
           </div>
-
         </div>
-
       </main>
     );
   }
@@ -583,25 +529,20 @@ export default function ProfilePage() {
   return (
     <main className="min-h-screen bg-slate-50">
 
-      {/* ===================================================== */}
       {/* HEADER */}
-      {/* ===================================================== */}
 
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
-
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
 
           <Link
             href="/dashboard"
             className="flex shrink-0 items-center gap-3"
           >
-
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-2xl shadow-md">
               🎓
             </div>
 
             <div className="hidden sm:block">
-
               <div className="font-black text-slate-900">
                 วารีเทพ
               </div>
@@ -609,21 +550,16 @@ export default function ProfilePage() {
               <div className="text-xs font-bold tracking-widest text-blue-600">
                 LEARNING
               </div>
-
             </div>
-
           </Link>
 
           <nav className="flex items-center gap-2">
 
             <button
               type="button"
-              onClick={() =>
-                router.back()
-              }
+              onClick={() => router.back()}
               className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
             >
-
               <span className="text-lg">
                 ←
               </span>
@@ -631,20 +567,17 @@ export default function ProfilePage() {
               <span className="hidden sm:inline">
                 ย้อนกลับ
               </span>
-
             </button>
 
             <Link
               href="/dashboard"
               className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-sm font-black text-white shadow-sm transition hover:bg-blue-700"
             >
-
               <span>⌂</span>
 
               <span className="hidden sm:inline">
                 หน้าหลัก
               </span>
-
             </Link>
 
             <Link
@@ -655,21 +588,16 @@ export default function ProfilePage() {
             </Link>
 
           </nav>
-
         </div>
-
       </header>
 
-      {/* ===================================================== */}
       {/* CONTENT */}
-      {/* ===================================================== */}
 
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 md:py-10">
 
         {/* TITLE */}
 
         <div className="mb-8">
-
           <p className="font-bold tracking-widest text-blue-600">
             MY PROFILE
           </p>
@@ -681,7 +609,6 @@ export default function ProfilePage() {
           <p className="mt-3 text-slate-500">
             ข้อมูลสมาชิกและความคืบหน้าการเรียนรู้ของคุณ
           </p>
-
         </div>
 
         {/* ERROR */}
@@ -692,9 +619,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* ================================================= */}
         {/* PROFILE HEADER */}
-        {/* ================================================= */}
 
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
 
@@ -734,14 +659,10 @@ export default function ProfilePage() {
               </Link>
 
             </div>
-
           </div>
-
         </section>
 
-        {/* ================================================= */}
         {/* PERSONAL INFO */}
-        {/* ================================================= */}
 
         <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 md:p-8">
 
@@ -764,7 +685,6 @@ export default function ProfilePage() {
           <div className="grid gap-4 md:grid-cols-2">
 
             <div className="rounded-2xl bg-slate-50 p-5">
-
               <p className="text-xs font-bold text-slate-400">
                 ชื่อ-นามสกุล
               </p>
@@ -772,11 +692,9 @@ export default function ProfilePage() {
               <p className="mt-2 break-words font-black text-slate-900">
                 {member?.name || "-"}
               </p>
-
             </div>
 
             <div className="rounded-2xl bg-slate-50 p-5">
-
               <p className="text-xs font-bold text-slate-400">
                 ตำแหน่ง
               </p>
@@ -784,11 +702,9 @@ export default function ProfilePage() {
               <p className="mt-2 break-words font-black text-slate-900">
                 {member?.position || "-"}
               </p>
-
             </div>
 
             <div className="rounded-2xl bg-slate-50 p-5">
-
               <p className="text-xs font-bold text-slate-400">
                 สาขา
               </p>
@@ -796,11 +712,9 @@ export default function ProfilePage() {
               <p className="mt-2 break-words font-black text-slate-900">
                 {member?.branch || "-"}
               </p>
-
             </div>
 
             <div className="rounded-2xl bg-slate-50 p-5">
-
               <p className="text-xs font-bold text-slate-400">
                 ฝ่าย
               </p>
@@ -808,16 +722,12 @@ export default function ProfilePage() {
               <p className="mt-2 break-words font-black text-slate-900">
                 {member?.department || "-"}
               </p>
-
             </div>
 
           </div>
-
         </section>
 
-        {/* ================================================= */}
         {/* LEARNING STATS */}
-        {/* ================================================= */}
 
         <section className="mt-6">
 
@@ -900,19 +810,15 @@ export default function ProfilePage() {
             </div>
 
           </div>
-
         </section>
 
-        {/* ================================================= */}
         {/* MY PROGRESS */}
-        {/* ================================================= */}
 
         <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 md:p-8">
 
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
             <div>
-
               <p className="font-bold text-blue-600">
                 MY PROGRESS
               </p>
@@ -920,7 +826,6 @@ export default function ProfilePage() {
               <h2 className="mt-1 text-xl font-black">
                 ความคืบหน้าการเรียน
               </h2>
-
             </div>
 
             <div className="text-left sm:text-right">
@@ -962,9 +867,7 @@ export default function ProfilePage() {
 
         </section>
 
-        {/* ================================================= */}
         {/* CONTINUE LEARNING */}
-        {/* ================================================= */}
 
         <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 md:p-8">
 
@@ -1147,11 +1050,9 @@ export default function ProfilePage() {
                         </div>
 
                         <p className="mt-2 text-xs font-bold text-slate-400">
-
                           {progress.completed
                             ? "✓ เรียนจบแล้ว"
                             : `ดูไปแล้ว ${percent}% • กดเพื่อเรียนต่อ`}
-
                         </p>
 
                       </div>
@@ -1166,9 +1067,7 @@ export default function ProfilePage() {
 
         </section>
 
-        {/* ================================================= */}
         {/* QUICK ACTION */}
-        {/* ================================================= */}
 
         <section className="mt-6 grid gap-4 md:grid-cols-2">
 
@@ -1230,9 +1129,7 @@ export default function ProfilePage() {
 
       </div>
 
-      {/* ===================================================== */}
       {/* FOOTER */}
-      {/* ===================================================== */}
 
       <footer className="mt-10 border-t border-slate-200 bg-white">
 
