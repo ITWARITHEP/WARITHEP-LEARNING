@@ -525,6 +525,12 @@ export default function AdminPage() {
               title="จัดการฝ่าย"
               description="จัดการข้อมูลฝ่ายสำนักงานใหญ่"
             />
+            <AdminCard
+  href="/admin/exam-results"
+  icon="🏆"
+  title="ผลการสอบสมาชิก"
+  description="ดูคะแนนและสถานะการสอบของสมาชิก"
+/>
 
             <AdminCard
               href="/admin/standards"
