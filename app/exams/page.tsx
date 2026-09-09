@@ -742,54 +742,61 @@ export default function ExamsPage() {
 
       {/* FILTER */}
 
-      <section className="mx-auto max-w-[1500px] px-4 pt-4 sm:px-5 sm:pt-5 md:px-8">
+<section className="mx-auto max-w-[1500px] px-4 pt-4 sm:px-5 sm:pt-5 md:px-8">
 
-        <div className="scrollbar-hide flex gap-2 overflow-x-auto pb-3">
+  <div
+    className="scrollbar-hide flex touch-pan-x gap-2 overflow-x-auto pb-3"
+    onWheel={(e) => {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.currentTarget.scrollLeft += e.deltaY;
+      }
+    }}
+  >
 
-          {departments.map(
-            (department) => {
+    {departments.map(
+      (department) => {
 
-              const active =
-                selectedDepartment ===
-                department;
+        const active =
+          selectedDepartment ===
+          department;
 
-              return (
-                <button
-                  key={department}
-                  type="button"
-                  onClick={() =>
-                    setSelectedDepartment(
-                      department
-                    )
-                  }
-                  className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[10px] font-bold transition-all sm:px-4 sm:py-2.5 sm:text-xs ${
-                    active
-                      ? "bg-blue-600 text-white shadow-md"
-                      : "border border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-blue-600"
-                  }`}
-                >
-
-                  {department !==
-                    "ทั้งหมด" && (
-                    <span className="mr-1">
-                      {
-                        departmentIcons[
-                          department
-                        ]
-                      }
-                    </span>
-                  )}
-
-                  {department}
-
-                </button>
-              );
+        return (
+          <button
+            key={department}
+            type="button"
+            onClick={() =>
+              setSelectedDepartment(
+                department
+              )
             }
-          )}
+            className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[10px] font-bold transition-all sm:px-4 sm:py-2.5 sm:text-xs ${
+              active
+                ? "bg-blue-600 text-white shadow-md"
+                : "border border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-blue-600"
+            }`}
+          >
 
-        </div>
+            {department !==
+              "ทั้งหมด" && (
+              <span className="mr-1">
+                {
+                  departmentIcons[
+                    department
+                  ]
+                }
+              </span>
+            )}
 
-      </section>
+            {department}
+
+          </button>
+        );
+      }
+    )}
+
+  </div>
+
+</section>
 
       {/* CONTENT */}
 
