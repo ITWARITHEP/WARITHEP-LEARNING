@@ -357,9 +357,9 @@ export default function NewVideoPage() {
         video_type: videoType,
 
         department:
-          videoType === "course"
-            ? department
-            : null,
+  videoType === "course"
+    ? department
+    : trainingGroup,
 
         training_group:
           videoType === "training"
