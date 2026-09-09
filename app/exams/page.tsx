@@ -28,11 +28,8 @@ type ExamResult = {
 
 type Member = {
   id: string;
-  name?: string | null;
-  full_name?: string | null;
-  first_name?: string | null;
-  last_name?: string | null;
-  department?: string | null;
+  name: string | null;
+  department: string | null;
 };
 
 const departments = [
@@ -68,13 +65,6 @@ const departmentIcons: Record<string, string> = {
   "ฝ่ายบริหารโครงการ": "📊",
 };
 
-function normalizeName(value: unknown): string {
-  return String(value ?? "")
-    .trim()
-    .replace(/\s+/g, "")
-    .toLowerCase();
-}
-
 export default function ExamsPage() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,9 +85,9 @@ export default function ExamsPage() {
   const getCurrentMember = useCallback(
     async (): Promise<Member | null> => {
       try {
-        // -----------------------------------------------------
+        // =====================================================
         // 1. ใช้ Member ID ที่ Login เก็บไว้
-        // -----------------------------------------------------
+        // =====================================================
 
         const memberIdKeys = [
           "warithep_learning_member_id",
@@ -112,25 +102,42 @@ export default function ExamsPage() {
 
           if (!storedId) continue;
 
+          console.log(
+            "ตรวจสอบ Member ID:",
+            key,
+            storedId
+          );
+
           const {
             data,
             error,
           } = await supabase
             .from("members")
-            .select(
-              "id,name,full_name,first_name,last_name,department"
-            )
+            .select("id,name,department")
             .eq("id", storedId)
             .maybeSingle();
 
-          if (!error && data) {
+          if (error) {
+            console.error(
+              "ค้นหาสมาชิกด้วย ID ไม่สำเร็จ:",
+              error
+            );
+            continue;
+          }
+
+          if (data) {
+            console.log(
+              "พบสมาชิกจาก ID:",
+              data
+            );
+
             return data as Member;
           }
         }
 
-        // -----------------------------------------------------
+        // =====================================================
         // 2. ใช้ข้อมูลสมาชิกที่ Login เก็บไว้
-        // -----------------------------------------------------
+        // =====================================================
 
         const objectKeys = [
           "warithep_learning_member",
@@ -147,144 +154,185 @@ export default function ExamsPage() {
 
           if (!stored) continue;
 
-          let parsed: unknown = null;
-
           try {
-            parsed = JSON.parse(stored);
-          } catch {
-            parsed = stored;
-          }
-
-          let name = "";
-
-          if (typeof parsed === "string") {
-            name = parsed;
-          } else if (
-            parsed &&
-            typeof parsed === "object"
-          ) {
-            const value =
-              parsed as Record<string, unknown>;
-
-            name = String(
-              value.name ||
-                value.full_name ||
-                value.member_name ||
-                ""
-            );
+            const parsed = JSON.parse(stored);
 
             if (
-              !name &&
-              value.first_name &&
-              value.last_name
+              parsed &&
+              typeof parsed === "object"
             ) {
-              name =
-                `${value.first_name} ${value.last_name}`;
-            }
+              const value =
+                parsed as Record<string, unknown>;
 
-            // ถ้ามี ID อยู่ใน object ให้ใช้ ID ก่อน
-            if (value.id) {
-              const {
-                data,
-                error,
-              } = await supabase
-                .from("members")
-                .select(
-                  "id,name,full_name,first_name,last_name,department"
-                )
-                .eq(
-                  "id",
-                  String(value.id)
-                )
-                .maybeSingle();
+              // -----------------------------------------------
+              // ถ้ามี ID ให้ใช้ ID ก่อน
+              // -----------------------------------------------
 
-              if (!error && data) {
-                return data as Member;
+              if (value.id) {
+                const {
+                  data,
+                  error,
+                } = await supabase
+                  .from("members")
+                  .select("id,name,department")
+                  .eq(
+                    "id",
+                    String(value.id)
+                  )
+                  .maybeSingle();
+
+                if (
+                  !error &&
+                  data
+                ) {
+                  console.log(
+                    "พบสมาชิกจาก Object ID:",
+                    data
+                  );
+
+                  // ซ่อม ID ให้แน่นอน
+                  localStorage.setItem(
+                    "warithep_learning_member_id",
+                    data.id
+                  );
+
+                  localStorage.setItem(
+                    "warithep_learning_member",
+                    JSON.stringify(data)
+                  );
+
+                  return data as Member;
+                }
+              }
+
+              // -----------------------------------------------
+              // ถ้าไม่มี ID ให้ใช้ชื่อ
+              // -----------------------------------------------
+
+              const name = String(
+                value.name ||
+                  value.member_name ||
+                  ""
+              ).trim();
+
+              if (name) {
+                const {
+                  data,
+                  error,
+                } = await supabase
+                  .from("members")
+                  .select("id,name,department")
+                  .eq("name", name)
+                  .limit(1)
+                  .maybeSingle();
+
+                if (
+                  !error &&
+                  data
+                ) {
+                  console.log(
+                    "พบสมาชิกจากชื่อ:",
+                    data
+                  );
+
+                  // สำคัญ:
+                  // เมื่อเจอสมาชิกแล้ว
+                  // เก็บ ID กลับทันที
+                  localStorage.setItem(
+                    "warithep_learning_member_id",
+                    data.id
+                  );
+
+                  localStorage.setItem(
+                    "warithep_learning_member",
+                    JSON.stringify(data)
+                  );
+
+                  localStorage.setItem(
+                    "warithep_learning_login_name",
+                    data.name || name
+                  );
+
+                  return data as Member;
+                }
               }
             }
-          }
-
-          if (!name.trim()) continue;
-
-          // ลอง name
-          const {
-            data: nameData,
-          } = await supabase
-            .from("members")
-            .select(
-              "id,name,full_name,first_name,last_name,department"
-            )
-            .eq("name", name.trim())
-            .limit(1)
-            .maybeSingle();
-
-          if (nameData) {
-            return nameData as Member;
-          }
-
-          // ลอง full_name
-          const {
-            data: fullNameData,
-          } = await supabase
-            .from("members")
-            .select(
-              "id,name,full_name,first_name,last_name,department"
-            )
-            .eq(
-              "full_name",
-              name.trim()
-            )
-            .limit(1)
-            .maybeSingle();
-
-          if (fullNameData) {
-            return fullNameData as Member;
+          } catch (error) {
+            console.warn(
+              "ข้อมูลสมาชิกใน LocalStorage อ่านไม่ได้:",
+              key,
+              error
+            );
           }
         }
 
-        // -----------------------------------------------------
+        // =====================================================
         // 3. ใช้ชื่อ Login โดยตรง
-        // -----------------------------------------------------
+        // =====================================================
 
         const loginName =
-          localStorage.getItem(
-            "warithep_learning_login_name"
-          )?.trim();
+          localStorage
+            .getItem(
+              "warithep_learning_login_name"
+            )
+            ?.trim();
 
         if (loginName) {
+          console.log(
+            "กำลังค้นหาสมาชิกจาก Login Name:",
+            loginName
+          );
+
           const {
-            data: nameData,
+            data,
+            error,
           } = await supabase
             .from("members")
-            .select(
-              "id,name,full_name,first_name,last_name,department"
-            )
+            .select("id,name,department")
             .eq("name", loginName)
             .limit(1)
             .maybeSingle();
 
-          if (nameData) {
-            return nameData as Member;
+          if (
+            !error &&
+            data
+          ) {
+            console.log(
+              "พบสมาชิกจาก Login Name:",
+              data
+            );
+
+            // สำคัญมาก
+            // ซ่อม Member ID กลับเข้า LocalStorage
+            localStorage.setItem(
+              "warithep_learning_member_id",
+              data.id
+            );
+
+            localStorage.setItem(
+              "warithep_learning_member",
+              JSON.stringify(data)
+            );
+
+            localStorage.setItem(
+              "warithep_learning_login_name",
+              data.name || loginName
+            );
+
+            return data as Member;
           }
 
-          const {
-            data: fullNameData,
-          } = await supabase
-            .from("members")
-            .select(
-              "id,name,full_name,first_name,last_name,department"
-            )
-            .eq(
-              "full_name",
-              loginName
-            )
-            .limit(1)
-            .maybeSingle();
-
-          if (fullNameData) {
-            return fullNameData as Member;
+          if (error) {
+            console.error(
+              "ค้นหาสมาชิกจาก Login Name ไม่สำเร็จ:",
+              error
+            );
           }
         }
+
+        console.warn(
+          "ไม่พบสมาชิกที่ Login อยู่"
+        );
 
         return null;
       } catch (error) {
@@ -362,60 +410,27 @@ export default function ExamsPage() {
         );
 
         // =====================================================
-        // 3. สร้างชื่อทั้งหมดที่เป็นไปได้
-        // =====================================================
-
-        const memberNames = new Set<string>();
-
-        if (member.name) {
-          memberNames.add(
-            normalizeName(member.name)
-          );
-        }
-
-        if (member.full_name) {
-          memberNames.add(
-            normalizeName(
-              member.full_name
-            )
-          );
-        }
-
-        if (
-          member.first_name &&
-          member.last_name
-        ) {
-          memberNames.add(
-            normalizeName(
-              `${member.first_name} ${member.last_name}`
-            )
-          );
-        }
-
-        // =====================================================
-        // 4. สำคัญมาก
+        // 3. โหลดผลสอบของสมาชิกคนปัจจุบันโดยตรง
         //
-        // โหลด exam_results ที่มีอยู่ทั้งหมด
-        //
-        // ไม่กรอง member_id ตั้งแต่ SQL
-        // เพราะข้อมูลเก่าบางรายการอาจไม่มี member_id
+        // ใช้ member_id เป็นตัวเชื่อมหลัก
         // =====================================================
 
         const {
-          data: allResults,
+          data: memberResults,
           error: resultError,
         } = await supabase
           .from("exam_results")
           .select(
             "id,exam_id,member_id,member_name,passed,score,total_score,percent,created_at"
           )
+          .eq("member_id", member.id)
           .order("created_at", {
             ascending: false,
           });
 
         if (resultError) {
           console.error(
-            "Load exam results error:",
+            "โหลดผลสอบของสมาชิกไม่สำเร็จ:",
             resultError
           );
 
@@ -424,63 +439,12 @@ export default function ExamsPage() {
         }
 
         console.log(
-          "ALL EXAM RESULTS:",
-          allResults
-        );
-
-        // =====================================================
-        // 5. กรองเฉพาะผลสอบของสมาชิกคนนี้
-        //
-        // จับด้วย:
-        // - member_id
-        // - member_name
-        //
-        // รองรับข้อมูลเก่าด้วย
-        // =====================================================
-
-        const memberResults =
-          ((allResults ??
-            []) as ExamResult[]).filter(
-            (result) => {
-              // -----------------------------
-              // ID ตรง
-              // -----------------------------
-
-              if (
-                result.member_id &&
-                String(
-                  result.member_id
-                ) === String(member.id)
-              ) {
-                return true;
-              }
-
-              // -----------------------------
-              // ชื่อตรงหลัง normalize
-              // -----------------------------
-
-              if (
-                result.member_name &&
-                memberNames.has(
-                  normalizeName(
-                    result.member_name
-                  )
-                )
-              ) {
-                return true;
-              }
-
-              return false;
-            }
-          );
-
-        console.log(
           "RESULTS OF CURRENT MEMBER:",
           memberResults
         );
 
         // =====================================================
-        // 6. เอาผลล่าสุดของแต่ละแบบทดสอบ
+        // 4. เอาผลล่าสุดของแต่ละแบบทดสอบ
         // =====================================================
 
         const latestResults: Record<
@@ -488,7 +452,7 @@ export default function ExamsPage() {
           ExamResult
         > = {};
 
-        memberResults.forEach(
+        (memberResults ?? []).forEach(
           (result) => {
             const old =
               latestResults[
