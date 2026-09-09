@@ -21,6 +21,13 @@ const departments = [
   "ฝ่ายบริหารโครงการ",
 ];
 
+const trainingGroups = [
+  "พนักงานปฏิบัติการฝ่ายขายและการตลาด",
+  "ผู้บริหารพนักงานปฏิบัติการฝ่ายขายและการตลาด",
+  "ฝ่ายวิศวกรรม",
+  "เจ้าหน้าที่สำนักงาน",
+];
+
 type CloudflareVideo = {
   uid: string;
   thumbnail?: string;
@@ -41,6 +48,8 @@ type SavedVideo = {
   cloudflare_video_id: string | null;
   title: string | null;
   department: string | null;
+  training_group: string | null;
+  video_type: string | null;
   duration_seconds: number | null;
   thumbnail_url: string | null;
   video_url: string | null;
@@ -50,36 +59,31 @@ type SavedVideo = {
 export default function NewVideoPage() {
   const router = useRouter();
 
-  const [videos, setVideos] = useState<
-    CloudflareVideo[]
-  >([]);
-
+  const [videos, setVideos] = useState<CloudflareVideo[]>([]);
   const [selectedVideo, setSelectedVideo] =
     useState<CloudflareVideo | null>(null);
 
-  const [savedVideos, setSavedVideos] = useState<
-    SavedVideo[]
-  >([]);
+  const [savedVideos, setSavedVideos] = useState<SavedVideo[]>([]);
 
   const [title, setTitle] = useState("");
-  const [department, setDepartment] =
-    useState("");
-  const [description, setDescription] =
-    useState("");
-  const [published, setPublished] =
-    useState("published");
+  const [videoType, setVideoType] = useState<
+    "course" | "training"
+  >("course");
 
-  const [loading, setLoading] =
-    useState(true);
+  const [department, setDepartment] = useState("");
+  const [trainingGroup, setTrainingGroup] = useState("");
 
-  const [saving, setSaving] =
-    useState(false);
+  const [description, setDescription] = useState("");
+  const [published, setPublished] = useState("published");
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   // =====================================================
-  // โหลดวิดีโอจาก Cloudflare + ข้อมูลเดิมจาก Supabase
+  // โหลดวิดีโอ
   // =====================================================
 
   async function loadVideos() {
@@ -87,35 +91,25 @@ export default function NewVideoPage() {
     setError("");
 
     try {
-      // -----------------------------------------------
-      // โหลดข้อมูลที่มีอยู่ใน Supabase
-      // -----------------------------------------------
-
       const {
         data: supabaseVideos,
         error: supabaseError,
       } = await supabase
         .from("knowledge_videos")
         .select(
-          "id, cloudflare_video_id, title, department, duration_seconds, thumbnail_url, video_url, published"
+          "id,cloudflare_video_id,title,department,training_group,video_type,duration_seconds,thumbnail_url,video_url,published"
         )
         .order("created_at", {
           ascending: false,
         });
 
       if (supabaseError) {
-        throw new Error(
-          supabaseError.message
-        );
+        throw new Error(supabaseError.message);
       }
 
       setSavedVideos(
         (supabaseVideos ?? []) as SavedVideo[]
       );
-
-      // -----------------------------------------------
-      // โหลดวิดีโอจาก Cloudflare
-      // -----------------------------------------------
 
       try {
         const response = await fetch(
@@ -131,8 +125,7 @@ export default function NewVideoPage() {
           );
         }
 
-        const data =
-          await response.json();
+        const data = await response.json();
 
         if (
           !data?.success ||
@@ -151,15 +144,10 @@ export default function NewVideoPage() {
           cloudflareError
         );
 
-        // ถ้า Cloudflare โหลดไม่ได้
-        // ไม่ให้ทั้งหน้าพัง
         setVideos([]);
       }
     } catch (err) {
-      console.error(
-        "LOAD VIDEOS ERROR:",
-        err
-      );
+      console.error("LOAD VIDEOS ERROR:", err);
 
       setError(
         err instanceof Error
@@ -179,35 +167,34 @@ export default function NewVideoPage() {
   // เลือกวิดีโอ
   // =====================================================
 
-  function selectVideo(
-    video: CloudflareVideo
-  ) {
+  function selectVideo(video: CloudflareVideo) {
     setSelectedVideo(video);
 
-    setTitle(
-      video.meta?.name ||
-        video.meta?.filename ||
-        ""
-    );
-
-    // ถ้ามีข้อมูลเดิมใน Supabase
-    // ให้ดึงฝ่ายเดิมกลับมา
     const existing = savedVideos.find(
       (item) =>
-        item.cloudflare_video_id ===
-        video.uid
+        item.cloudflare_video_id === video.uid
     );
 
     if (existing) {
-      setDepartment(
-        existing.department || ""
-      );
-
       setTitle(
         existing.title ||
           video.meta?.name ||
           video.meta?.filename ||
           ""
+      );
+
+      setVideoType(
+        existing.video_type === "training"
+          ? "training"
+          : "course"
+      );
+
+      setDepartment(
+        existing.department || ""
+      );
+
+      setTrainingGroup(
+        existing.training_group || ""
       );
 
       setPublished(
@@ -216,7 +203,15 @@ export default function NewVideoPage() {
           : "draft"
       );
     } else {
+      setTitle(
+        video.meta?.name ||
+          video.meta?.filename ||
+          ""
+      );
+
+      setVideoType("course");
       setDepartment("");
+      setTrainingGroup("");
       setPublished("published");
     }
 
@@ -225,21 +220,35 @@ export default function NewVideoPage() {
   }
 
   // =====================================================
+  // เปลี่ยนประเภทวิดีโอ
+  // =====================================================
+
+  function changeVideoType(
+    type: "course" | "training"
+  ) {
+    setVideoType(type);
+
+    if (type === "course") {
+      setTrainingGroup("");
+    } else {
+      setDepartment("");
+    }
+
+    setError("");
+  }
+
+  // =====================================================
   // เวลา
   // =====================================================
 
-  function formatDuration(
-    seconds?: number
-  ) {
+  function formatDuration(seconds?: number) {
     if (!seconds || seconds <= 0) {
       return "ไม่ระบุ";
     }
 
     const total = Math.floor(seconds);
 
-    const hours = Math.floor(
-      total / 3600
-    );
+    const hours = Math.floor(total / 3600);
 
     const minutes = Math.floor(
       (total % 3600) / 60
@@ -270,7 +279,7 @@ export default function NewVideoPage() {
   }
 
   // =====================================================
-  // บันทึกวิดีโอ
+  // บันทึก
   // =====================================================
 
   async function saveVideo() {
@@ -289,8 +298,23 @@ export default function NewVideoPage() {
       return;
     }
 
-    if (!department) {
-      setError("กรุณาเลือกฝ่าย");
+    if (
+      videoType === "course" &&
+      !department
+    ) {
+      setError(
+        "กรุณาเลือกฝ่ายสำหรับวิดีโอหลักสูตรสอนงาน"
+      );
+      return;
+    }
+
+    if (
+      videoType === "training" &&
+      !trainingGroup
+    ) {
+      setError(
+        "กรุณาเลือกกลุ่มสำหรับวิดีโออบรมและบรรยาย"
+      );
       return;
     }
 
@@ -299,10 +323,6 @@ export default function NewVideoPage() {
     setSaving(true);
 
     try {
-      // =================================================
-      // ตรวจสอบว่ามีวิดีโอนี้ใน Supabase แล้วหรือยัง
-      // =================================================
-
       const {
         data: existing,
         error: existingError,
@@ -316,24 +336,12 @@ export default function NewVideoPage() {
         .maybeSingle();
 
       if (existingError) {
-        throw new Error(
-          existingError.message
-        );
+        throw new Error(existingError.message);
       }
-
-      // =================================================
-      // URL วิดีโอ Cloudflare
-      // =================================================
 
       const videoUrl =
         selectedVideo.preview ||
         `https://customer-xv4jsdza59p3njyz.cloudflarestream.com/${selectedVideo.uid}/watch`;
-
-      // =================================================
-      // PAYLOAD
-      //
-      // ใช้ชื่อคอลัมน์ให้ตรงกับ knowledge_videos
-      // =================================================
 
       const payload = {
         cloudflare_video_id:
@@ -341,9 +349,22 @@ export default function NewVideoPage() {
 
         title: title.trim(),
 
-        category: "course",
+        category:
+          videoType === "training"
+            ? "training"
+            : "course",
 
-        department,
+        video_type: videoType,
+
+        department:
+          videoType === "course"
+            ? department
+            : null,
+
+        training_group:
+          videoType === "training"
+            ? trainingGroup
+            : null,
 
         speaker: null,
 
@@ -367,11 +388,6 @@ export default function NewVideoPage() {
           new Date().toISOString(),
       };
 
-      // =================================================
-      // ถ้ามีแล้ว = UPDATE
-      // ถ้ายังไม่มี = INSERT
-      // =================================================
-
       let result;
 
       if (existing?.id) {
@@ -390,9 +406,7 @@ export default function NewVideoPage() {
       }
 
       if (result.error) {
-        throw new Error(
-          result.error.message
-        );
+        throw new Error(result.error.message);
       }
 
       setSuccess(
@@ -401,7 +415,6 @@ export default function NewVideoPage() {
           : "เพิ่มวิดีโอเรียบร้อยแล้ว"
       );
 
-      // กลับหน้า Admin
       window.setTimeout(() => {
         router.push("/admin/videos");
         router.refresh();
@@ -426,6 +439,7 @@ export default function NewVideoPage() {
     <main className="min-h-screen bg-slate-50">
 
       {/* HEADER */}
+
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white">
 
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
@@ -465,9 +479,9 @@ export default function NewVideoPage() {
       </header>
 
       {/* CONTENT */}
+
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
 
-        {/* TITLE */}
         <div className="mb-8">
 
           <p className="font-bold text-blue-600">
@@ -475,17 +489,18 @@ export default function NewVideoPage() {
           </p>
 
           <h1 className="mt-2 text-3xl font-black text-slate-900 sm:text-4xl">
-            เพิ่มวิดีโอสอนงาน
+            เพิ่มวิดีโอ
           </h1>
 
           <p className="mt-3 text-sm leading-6 text-slate-500 sm:text-base">
-            เลือกวิดีโอที่อัปโหลดไว้ใน Cloudflare Stream
-            แล้วกำหนดฝ่ายสำหรับแสดงผล
+            เลือกวิดีโอจาก Cloudflare Stream
+            แล้วกำหนดประเภทการเรียนรู้
           </p>
 
         </div>
 
         {/* ERROR */}
+
         {error && (
           <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700">
             ❌ {error}
@@ -493,6 +508,7 @@ export default function NewVideoPage() {
         )}
 
         {/* SUCCESS */}
+
         {success && (
           <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-sm font-semibold text-green-700">
             ✅ {success}
@@ -501,9 +517,9 @@ export default function NewVideoPage() {
 
         <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
 
-          {/* =================================================
-              VIDEO LIST
-          ================================================== */}
+          {/* ================================================= */}
+          {/* VIDEO LIST */}
+          {/* ================================================= */}
 
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
 
@@ -538,7 +554,6 @@ export default function NewVideoPage() {
 
             </div>
 
-            {/* LOADING */}
             {loading && (
               <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-16 text-center">
 
@@ -551,7 +566,6 @@ export default function NewVideoPage() {
               </div>
             )}
 
-            {/* CLOUDFLARE ERROR */}
             {!loading &&
               videos.length === 0 &&
               savedVideos.length > 0 && (
@@ -568,7 +582,6 @@ export default function NewVideoPage() {
                 </div>
               )}
 
-            {/* NO VIDEOS */}
             {!loading &&
               videos.length === 0 &&
               savedVideos.length === 0 && (
@@ -589,7 +602,6 @@ export default function NewVideoPage() {
                 </div>
               )}
 
-            {/* CLOUDFLARE VIDEO LIST */}
             {!loading &&
               videos.length > 0 && (
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -626,14 +638,11 @@ export default function NewVideoPage() {
                         }`}
                       >
 
-                        {/* THUMBNAIL */}
                         <div className="relative aspect-video overflow-hidden bg-slate-900">
 
                           {video.thumbnail ? (
                             <img
-                              src={
-                                video.thumbnail
-                              }
+                              src={video.thumbnail}
                               alt={name}
                               className="h-full w-full object-cover"
                             />
@@ -672,7 +681,6 @@ export default function NewVideoPage() {
 
                         </div>
 
-                        {/* INFO */}
                         <div className="p-4">
 
                           <div className="flex items-start gap-3">
@@ -699,14 +707,20 @@ export default function NewVideoPage() {
                                 {video.uid}
                               </p>
 
-                              {existing?.department && (
+                              {existing?.video_type ===
+                                "training" ? (
+                                <p className="mt-2 text-xs font-bold text-violet-600">
+                                  🎤 วิดีโออบรม
+                                  {existing.training_group
+                                    ? ` • ${existing.training_group}`
+                                    : ""}
+                                </p>
+                              ) : existing?.department ? (
                                 <p className="mt-2 text-xs font-bold text-blue-600">
                                   📂{" "}
-                                  {
-                                    existing.department
-                                  }
+                                  {existing.department}
                                 </p>
-                              )}
+                              ) : null}
 
                             </div>
 
@@ -723,9 +737,9 @@ export default function NewVideoPage() {
 
           </section>
 
-          {/* =================================================
-              FORM
-          ================================================== */}
+          {/* ================================================= */}
+          {/* FORM */}
+          {/* ================================================= */}
 
           <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
 
@@ -736,16 +750,17 @@ export default function NewVideoPage() {
               </div>
 
               <h2 className="mt-4 text-xl font-black">
-                ข้อมูลวิดีโอสอนงาน
+                ข้อมูลวิดีโอ
               </h2>
 
               <p className="mt-1 text-sm text-slate-400">
-                กำหนดฝ่ายก่อนบันทึก
+                เลือกประเภทก่อนกำหนดหน่วยงาน
               </p>
 
             </div>
 
             {/* SELECTED */}
+
             <div className="mb-6 rounded-2xl bg-slate-50 p-4">
 
               <p className="text-xs font-bold text-slate-400">
@@ -776,6 +791,7 @@ export default function NewVideoPage() {
             </div>
 
             {/* TITLE */}
+
             <div className="mb-5">
 
               <label className="mb-2 block text-sm font-bold text-slate-700">
@@ -797,67 +813,187 @@ export default function NewVideoPage() {
 
             </div>
 
-            {/* DEPARTMENT */}
+            {/* ================================================= */}
+            {/* VIDEO TYPE */}
+            {/* ================================================= */}
+
             <div className="mb-5">
 
               <label className="mb-2 block text-sm font-bold text-slate-700">
-                ฝ่าย
+                ประเภทวิดีโอ
                 <span className="ml-1 text-red-500">
                   *
                 </span>
               </label>
 
-              <select
-                value={department}
-                onChange={(e) =>
-                  setDepartment(
-                    e.target.value
-                  )
-                }
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
-              >
+              <div className="grid grid-cols-2 gap-3">
 
-                <option value="">
-                  เลือกฝ่าย
-                </option>
+                <button
+                  type="button"
+                  onClick={() =>
+                    changeVideoType("course")
+                  }
+                  className={`rounded-2xl border-2 p-4 text-left transition ${
+                    videoType === "course"
+                      ? "border-blue-600 bg-blue-50 shadow-sm"
+                      : "border-slate-200 bg-white hover:border-blue-200"
+                  }`}
+                >
 
-                {departments.map(
-                  (item) => (
-                    <option
-                      key={item}
-                      value={item}
-                    >
-                      {item}
-                    </option>
-                  )
-                )}
+                  <div
+                    className={`flex h-11 w-11 items-center justify-center rounded-xl text-xl ${
+                      videoType === "course"
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-100"
+                    }`}
+                  >
+                    📚
+                  </div>
 
-              </select>
+                  <div className="mt-3 text-sm font-black">
+                    หลักสูตรสอนงาน
+                  </div>
 
-            </div>
+                  <div className="mt-1 text-[10px] leading-4 text-slate-500">
+                    วิดีโอแยกตาม 13 ฝ่าย
+                  </div>
 
-            {/* CATEGORY */}
-            <div className="mb-5">
+                </button>
 
-              <label className="mb-2 block text-sm font-bold text-slate-700">
-                ประเภท
-              </label>
+                <button
+                  type="button"
+                  onClick={() =>
+                    changeVideoType("training")
+                  }
+                  className={`rounded-2xl border-2 p-4 text-left transition ${
+                    videoType === "training"
+                      ? "border-violet-600 bg-violet-50 shadow-sm"
+                      : "border-slate-200 bg-white hover:border-violet-200"
+                  }`}
+                >
 
-              <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3.5">
+                  <div
+                    className={`flex h-11 w-11 items-center justify-center rounded-xl text-xl ${
+                      videoType === "training"
+                        ? "bg-violet-600 text-white"
+                        : "bg-slate-100"
+                    }`}
+                  >
+                    🎤
+                  </div>
 
-                <div className="font-black text-blue-700">
-                  🎥 วิดีโอสอนงาน
-                </div>
+                  <div className="mt-3 text-sm font-black">
+                    วิดีโออบรมและบรรยาย
+                  </div>
 
-                <p className="mt-1 text-xs text-blue-500">
-                  วิดีโอนี้จะแสดงในหน้าฝ่ายตามฝ่ายที่เลือก
-                </p>
+                  <div className="mt-1 text-[10px] leading-4 text-slate-500">
+                    สำหรับอบรมและสัมมนา
+                  </div>
+
+                </button>
 
               </div>
 
             </div>
 
+            {/* ================================================= */}
+            {/* COURSE DEPARTMENT */}
+            {/* ================================================= */}
+
+            {videoType === "course" && (
+              <div className="mb-5">
+
+                <label className="mb-2 block text-sm font-bold text-slate-700">
+                  ฝ่าย
+                  <span className="ml-1 text-red-500">
+                    *
+                  </span>
+                </label>
+
+                <select
+                  value={department}
+                  onChange={(e) =>
+                    setDepartment(
+                      e.target.value
+                    )
+                  }
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+                >
+
+                  <option value="">
+                    เลือกฝ่าย
+                  </option>
+
+                  {departments.map(
+                    (item) => (
+                      <option
+                        key={item}
+                        value={item}
+                      >
+                        {item}
+                      </option>
+                    )
+                  )}
+
+                </select>
+
+                <p className="mt-2 text-xs text-slate-400">
+                  วิดีโอจะแสดงในห้องเรียนของฝ่ายที่เลือก
+                </p>
+
+              </div>
+            )}
+
+            {/* ================================================= */}
+            {/* TRAINING GROUP */}
+            {/* ================================================= */}
+
+            {videoType === "training" && (
+              <div className="mb-5">
+
+                <label className="mb-2 block text-sm font-bold text-slate-700">
+                  กลุ่มสำหรับการอบรม
+                  <span className="ml-1 text-red-500">
+                    *
+                  </span>
+                </label>
+
+                <select
+                  value={trainingGroup}
+                  onChange={(e) =>
+                    setTrainingGroup(
+                      e.target.value
+                    )
+                  }
+                  className="w-full rounded-2xl border border-violet-200 bg-violet-50/40 px-4 py-3.5 outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-50"
+                >
+
+                  <option value="">
+                    เลือกกลุ่มสำหรับการอบรม
+                  </option>
+
+                  {trainingGroups.map(
+                    (item) => (
+                      <option
+                        key={item}
+                        value={item}
+                      >
+                        {item}
+                      </option>
+                    )
+                  )}
+
+                </select>
+
+                <p className="mt-2 text-xs text-violet-500">
+                  🎤 วิดีโอจะถูกจัดไว้ในหมวดวิดีโออบรมและบรรยาย
+                </p>
+
+              </div>
+            )}
+
             {/* DESCRIPTION */}
+
             <div className="mb-5">
 
               <label className="mb-2 block text-sm font-bold text-slate-700">
@@ -879,6 +1015,7 @@ export default function NewVideoPage() {
             </div>
 
             {/* STATUS */}
+
             <div className="mb-6">
 
               <label className="mb-2 block text-sm font-bold text-slate-700">
@@ -908,6 +1045,7 @@ export default function NewVideoPage() {
             </div>
 
             {/* ACTION */}
+
             <div className="flex flex-col gap-3 sm:flex-row">
 
               <Link
