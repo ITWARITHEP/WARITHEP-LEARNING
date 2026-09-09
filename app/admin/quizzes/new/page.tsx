@@ -21,11 +21,20 @@ const departments = [
   "ฝ่ายบริหารโครงการ",
 ];
 
+const trainingGroups = [
+  "พนักงานปฏิบัติการฝ่ายขายและการตลาด",
+  "ผู้บริหารพนักงานปฏิบัติการฝ่ายขายและการตลาด",
+  "ฝ่ายวิศวกรรม",
+  "เจ้าหน้าที่สำนักงาน",
+];
+
 export default function NewQuizPage() {
   const router = useRouter();
 
   const [title, setTitle] = useState("");
+  const [examType, setExamType] = useState("department");
   const [department, setDepartment] = useState("");
+  const [trainingGroup, setTrainingGroup] = useState("");
   const [description, setDescription] = useState("");
 
   const [durationMinutes, setDurationMinutes] = useState(15);
@@ -51,8 +60,13 @@ export default function NewQuizPage() {
       return;
     }
 
-    if (!department) {
+    if (examType === "department" && !department) {
       setError("กรุณาเลือกฝ่าย");
+      return;
+    }
+
+    if (examType === "training" && !trainingGroup) {
+      setError("กรุณาเลือกกลุ่มการอบรม");
       return;
     }
 
@@ -77,9 +91,22 @@ export default function NewQuizPage() {
         .insert({
           title: title.trim(),
           description: description.trim() || null,
-          department,
 
-          // ตอนสร้างใหม่ยังไม่มีข้อสอบ
+          // ประเภทแบบทดสอบ
+          exam_type: examType,
+
+          // แบบทดสอบฝ่าย
+          department:
+            examType === "department"
+              ? department
+              : null,
+
+          // แบบทดสอบการอบรม
+          training_group:
+            examType === "training"
+              ? trainingGroup
+              : null,
+
           question_count: 0,
           total_score: 0,
 
@@ -90,7 +117,6 @@ export default function NewQuizPage() {
           show_answers: showAnswers,
           show_score_immediately: showScoreImmediately,
 
-          // สร้างเป็นแบบร่างก่อน
           published: false,
         })
         .select("id")
@@ -106,7 +132,6 @@ export default function NewQuizPage() {
         );
       }
 
-      // ไปหน้าจัดการข้อสอบของแบบทดสอบที่เพิ่งสร้าง
       router.push(
         `/admin/quizzes/${data.id}/questions`
       );
@@ -168,7 +193,7 @@ export default function NewQuizPage() {
           </h1>
 
           <p className="mt-3 text-slate-500">
-            สร้างแบบทดสอบก่อน แล้วจึงเพิ่มข้อสอบ
+            เลือกประเภทแบบทดสอบก่อน แล้วจึงเพิ่มข้อสอบ
           </p>
         </div>
 
@@ -219,36 +244,135 @@ export default function NewQuizPage() {
                 />
               </div>
 
-              {/* DEPARTMENT */}
+              {/* EXAM TYPE */}
               <div>
-                <label className="mb-2 block text-sm font-bold">
-                  ฝ่าย
+                <label className="mb-3 block text-sm font-bold">
+                  ประเภทแบบทดสอบ
                   <span className="ml-1 text-red-500">
                     *
                   </span>
                 </label>
 
-                <select
-                  value={department}
-                  onChange={(e) =>
-                    setDepartment(e.target.value)
-                  }
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
-                >
-                  <option value="">
-                    เลือกฝ่าย
-                  </option>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {/* DEPARTMENT */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExamType("department");
+                      setTrainingGroup("");
+                    }}
+                    className={`rounded-2xl border-2 p-5 text-left transition ${
+                      examType === "department"
+                        ? "border-blue-600 bg-blue-50"
+                        : "border-slate-200 bg-white hover:border-blue-200"
+                    }`}
+                  >
+                    <div className="text-3xl">
+                      🏢
+                    </div>
 
-                  {departments.map((item) => (
-                    <option
-                      key={item}
-                      value={item}
-                    >
-                      {item}
-                    </option>
-                  ))}
-                </select>
+                    <div className="mt-3 font-black text-slate-900">
+                      แบบทดสอบประจำฝ่าย
+                    </div>
+
+                    <div className="mt-1 text-xs text-slate-500">
+                      สำหรับการเรียนรู้และความรู้ตามฝ่าย
+                    </div>
+                  </button>
+
+                  {/* TRAINING */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExamType("training");
+                      setDepartment("");
+                    }}
+                    className={`rounded-2xl border-2 p-5 text-left transition ${
+                      examType === "training"
+                        ? "border-blue-600 bg-blue-50"
+                        : "border-slate-200 bg-white hover:border-blue-200"
+                    }`}
+                  >
+                    <div className="text-3xl">
+                      🎤
+                    </div>
+
+                    <div className="mt-3 font-black text-slate-900">
+                      แบบทดสอบการอบรม
+                    </div>
+
+                    <div className="mt-1 text-xs text-slate-500">
+                      สำหรับอบรมและสัมมนาพนักงาน
+                    </div>
+                  </button>
+                </div>
               </div>
+
+              {/* DEPARTMENT */}
+              {examType === "department" && (
+                <div>
+                  <label className="mb-2 block text-sm font-bold">
+                    ฝ่าย
+                    <span className="ml-1 text-red-500">
+                      *
+                    </span>
+                  </label>
+
+                  <select
+                    value={department}
+                    onChange={(e) =>
+                      setDepartment(e.target.value)
+                    }
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+                  >
+                    <option value="">
+                      เลือกฝ่าย
+                    </option>
+
+                    {departments.map((item) => (
+                      <option
+                        key={item}
+                        value={item}
+                      >
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* TRAINING GROUP */}
+              {examType === "training" && (
+                <div>
+                  <label className="mb-2 block text-sm font-bold">
+                    กลุ่มการอบรม
+                    <span className="ml-1 text-red-500">
+                      *
+                    </span>
+                  </label>
+
+                  <select
+                    value={trainingGroup}
+                    onChange={(e) =>
+                      setTrainingGroup(e.target.value)
+                    }
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+                  >
+                    <option value="">
+                      เลือกกลุ่มการอบรม
+                    </option>
+
+                    {trainingGroups.map((item) => (
+                      <option
+                        key={item}
+                        value={item}
+                      >
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* DESCRIPTION */}
               <div>
