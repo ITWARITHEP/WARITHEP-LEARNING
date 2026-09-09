@@ -75,12 +75,23 @@ const departmentIcons: Record<string, string> = {
   "ฝ่ายบริหารโครงการ": "📊",
 };
 
+function getTrainingIcon(group: string | null) {
+  if (group === "ฝ่ายวิศวกรรม") return "⚙️";
+  if (group === "เจ้าหน้าที่สำนักงาน") return "🏢";
+  if (
+    group ===
+    "ผู้บริหารพนักงานปฏิบัติการฝ่ายขายและการตลาด"
+  ) {
+    return "👔";
+  }
+
+  return "👤";
+}
+
 export default function ExamsPage() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // department = แบบทดสอบประจำฝ่าย
-  // training = แบบทดสอบการอบรม
   const [examMode, setExamMode] = useState<
     "department" | "training"
   >("department");
@@ -97,7 +108,7 @@ export default function ExamsPage() {
     useState<Record<string, ExamResult>>({});
 
   // =========================================================
-  // หา Member ปัจจุบัน
+  // MEMBER
   // =========================================================
 
   const getCurrentMember = useCallback(
@@ -257,11 +268,6 @@ export default function ExamsPage() {
               JSON.stringify(data)
             );
 
-            localStorage.setItem(
-              "warithep_learning_login_name",
-              data.name || loginName
-            );
-
             return data as Member;
           }
         }
@@ -280,7 +286,7 @@ export default function ExamsPage() {
   );
 
   // =========================================================
-  // โหลดแบบทดสอบ + ผลสอบ
+  // LOAD EXAMS
   // =========================================================
 
   const loadExams = useCallback(
@@ -288,16 +294,18 @@ export default function ExamsPage() {
       try {
         setLoading(true);
 
-        const { data: examData, error: examError } =
-          await supabase
-            .from("exams")
-            .select(
-              "id,title,department,training_group,exam_type,description,question_count,passing_percent,published"
-            )
-            .eq("published", true)
-            .order("created_at", {
-              ascending: false,
-            });
+        const {
+          data: examData,
+          error: examError,
+        } = await supabase
+          .from("exams")
+          .select(
+            "id,title,department,training_group,exam_type,description,question_count,passing_percent,published"
+          )
+          .eq("published", true)
+          .order("created_at", {
+            ascending: false,
+          });
 
         if (examError) {
           console.error(
@@ -428,7 +436,7 @@ export default function ExamsPage() {
   }, [loadExams]);
 
   // =========================================================
-  // เปลี่ยนโหมด
+  // CHANGE MODE
   // =========================================================
 
   function changeMode(
@@ -456,10 +464,6 @@ export default function ExamsPage() {
       const examType =
         exam.exam_type || "department";
 
-      // -----------------------------------------
-      // ตรวจประเภท
-      // -----------------------------------------
-
       const matchType =
         examMode === "department"
           ? examType === "department"
@@ -468,10 +472,6 @@ export default function ExamsPage() {
       if (!matchType) {
         return false;
       }
-
-      // -----------------------------------------
-      // ฝ่าย
-      // -----------------------------------------
 
       const matchDepartment =
         examMode === "department" &&
@@ -482,10 +482,6 @@ export default function ExamsPage() {
             selectedDepartment
         );
 
-      // -----------------------------------------
-      // กลุ่มอบรม
-      // -----------------------------------------
-
       const matchTrainingGroup =
         examMode === "training" &&
         (
@@ -494,10 +490,6 @@ export default function ExamsPage() {
           exam.training_group ===
             selectedTrainingGroup
         );
-
-      // -----------------------------------------
-      // ค้นหา
-      // -----------------------------------------
 
       const searchableText = [
         exam.title,
@@ -537,7 +529,9 @@ export default function ExamsPage() {
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#f6f9fd] text-slate-900">
 
-      {/* HEADER */}
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
 
       <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
 
@@ -549,13 +543,17 @@ export default function ExamsPage() {
               href="/dashboard"
               className="flex items-center gap-2.5 sm:gap-3"
             >
+
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 shadow-md shadow-blue-500/15 sm:h-11 sm:w-11 sm:rounded-2xl">
+
                 <span className="text-xl sm:text-2xl">
                   🎓
                 </span>
+
               </div>
 
               <div className="leading-tight">
+
                 <div className="text-base font-black text-slate-900 sm:text-lg">
                   วารีเทพ
                 </div>
@@ -563,7 +561,9 @@ export default function ExamsPage() {
                 <div className="text-[9px] font-black tracking-[0.2em] text-blue-600 sm:text-[10px]">
                   LEARNING
                 </div>
+
               </div>
+
             </Link>
 
             <nav className="flex items-center gap-1.5 sm:gap-3 md:gap-6">
@@ -604,7 +604,9 @@ export default function ExamsPage() {
 
       </header>
 
-      {/* HERO */}
+      {/* =====================================================
+          HERO
+      ===================================================== */}
 
       <section className="relative overflow-hidden border-b border-slate-100 bg-white">
 
@@ -615,8 +617,11 @@ export default function ExamsPage() {
         <div className="relative mx-auto max-w-[1500px] px-4 pb-7 pt-8 sm:px-5 sm:pb-8 sm:pt-10 md:px-8 md:pb-10 md:pt-14">
 
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-[10px] font-black text-blue-700 sm:mb-5 sm:px-3.5 sm:py-2 sm:text-xs">
+
             <span className="h-1.5 w-1.5 rounded-full bg-blue-500 sm:h-2 sm:w-2" />
+
             LEARNING CENTER
+
           </div>
 
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -675,7 +680,9 @@ export default function ExamsPage() {
 
       </section>
 
-      {/* MODE SWITCH */}
+      {/* =====================================================
+          MODE SWITCH
+      ===================================================== */}
 
       <section className="mx-auto max-w-[1500px] px-4 pt-5 sm:px-5 sm:pt-6 md:px-8">
 
@@ -765,7 +772,9 @@ export default function ExamsPage() {
 
       </section>
 
-      {/* FILTER */}
+      {/* =====================================================
+          FILTER
+      ===================================================== */}
 
       <section className="mx-auto max-w-[1500px] px-4 pt-4 sm:px-5 sm:pt-5 md:px-8">
 
@@ -868,16 +877,9 @@ export default function ExamsPage() {
                     {group !==
                       "ทั้งหมด" && (
                       <span className="mr-1">
-                        {group ===
-                        "ฝ่ายวิศวกรรม"
-                          ? "⚙️"
-                          : group ===
-                            "เจ้าหน้าที่สำนักงาน"
-                            ? "🏢"
-                            : group ===
-                              "ผู้บริหารพนักงานปฏิบัติการฝ่ายขายและการตลาด"
-                              ? "👔"
-                              : "👤"}
+                        {getTrainingIcon(
+                          group
+                        )}
                       </span>
                     )}
 
@@ -894,7 +896,9 @@ export default function ExamsPage() {
 
       </section>
 
-      {/* CONTENT */}
+      {/* =====================================================
+          CONTENT
+      ===================================================== */}
 
       <section className="mx-auto max-w-[1500px] px-4 pb-16 pt-4 sm:px-5 sm:pb-20 sm:pt-5 md:px-8">
 
@@ -924,7 +928,9 @@ export default function ExamsPage() {
 
         </div>
 
-        {/* LOADING */}
+        {/* ===================================================
+            LOADING
+        =================================================== */}
 
         {loading ? (
 
@@ -934,7 +940,7 @@ export default function ExamsPage() {
               (item) => (
                 <div
                   key={item}
-                  className="h-[310px] animate-pulse rounded-[26px] border border-slate-200 bg-white"
+                  className="h-[330px] animate-pulse rounded-[26px] border border-slate-200 bg-white"
                 />
               )
             )}
@@ -977,18 +983,9 @@ export default function ExamsPage() {
                   "training";
 
                 const icon = isTraining
-                  ? (
-                    exam.training_group ===
-                    "ฝ่ายวิศวกรรม"
-                      ? "⚙️"
-                      : exam.training_group ===
-                        "เจ้าหน้าที่สำนักงาน"
-                        ? "🏢"
-                        : exam.training_group ===
-                          "ผู้บริหารพนักงานปฏิบัติการฝ่ายขายและการตลาด"
-                          ? "👔"
-                          : "👤"
-                  )
+                  ? getTrainingIcon(
+                      exam.training_group
+                    )
                   : (
                     departmentIcons[
                       exam.department || ""
@@ -1031,10 +1028,12 @@ export default function ExamsPage() {
                     }`}
                   >
 
-                    {/* CARD HEADER */}
+                    {/* =========================================
+                        CARD HEADER
+                    ========================================= */}
 
                     <div
-                      className={`relative h-[165px] overflow-hidden ${
+                      className={`relative h-[195px] overflow-hidden ${
                         passed
                           ? "bg-gradient-to-br from-[#16a34a] via-[#22c55e] to-[#15803d]"
                           : attempted
@@ -1043,13 +1042,19 @@ export default function ExamsPage() {
                       }`}
                     >
 
+                      {/* SOFT LIGHT */}
+
                       <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
 
-                      {/* STATUS */}
+                      <div className="pointer-events-none absolute -left-20 -bottom-24 h-48 w-48 rounded-full bg-white/5 blur-3xl" />
 
-                      <div className="absolute left-4 top-4 z-10 sm:left-5 sm:top-5">
+                      {/* =======================================
+                          STATUS
+                      ======================================= */}
 
-                        <div className="flex items-center gap-1.5 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-[10px] font-black text-white shadow-sm backdrop-blur-md sm:text-xs">
+                      <div className="absolute left-4 top-4 z-20 sm:left-5 sm:top-5">
+
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-[10px] font-black text-white shadow-sm backdrop-blur-md sm:text-xs">
 
                           {passed ? (
                             <>
@@ -1072,9 +1077,11 @@ export default function ExamsPage() {
 
                       </div>
 
-                      {/* CATEGORY */}
+                      {/* =======================================
+                          CATEGORY
+                      ======================================= */}
 
-                      <div className="absolute right-3 top-3 max-w-[58%] sm:right-4 sm:top-4">
+                      <div className="absolute right-3 top-3 z-20 max-w-[52%] sm:right-4 sm:top-4">
 
                         <div className="rounded-full border border-white/25 bg-white/20 px-2.5 py-1.5 backdrop-blur-sm sm:px-3">
 
@@ -1086,18 +1093,13 @@ export default function ExamsPage() {
 
                       </div>
 
-                      {/* ICON */}
+                      {/* =======================================
+                          ICON
+                      ======================================= */}
 
-                      <div className="absolute left-4 top-4 sm:left-5 sm:top-5">
+                      <div className="absolute left-4 top-[62px] z-10 sm:left-5 sm:top-[68px]">
 
-                        <div
-                          className={`flex h-12 w-12 items-center justify-center rounded-xl border border-white/25 bg-white/20 text-2xl shadow-sm backdrop-blur-sm sm:h-14 sm:w-14 sm:rounded-2xl sm:text-3xl ${
-                            passed ||
-                            attempted
-                              ? "mt-9 sm:mt-9"
-                              : ""
-                          }`}
-                        >
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/25 bg-white/20 text-2xl shadow-sm backdrop-blur-sm sm:h-14 sm:w-14 sm:rounded-2xl sm:text-3xl">
                           {passed
                             ? "🏆"
                             : attempted
@@ -1107,31 +1109,43 @@ export default function ExamsPage() {
 
                       </div>
 
-                      {/* TITLE */}
+                      {/* =======================================
+                          TITLE
+                      ======================================= */}
 
-                      <div className="absolute bottom-4 left-4 right-4 sm:bottom-5 sm:left-5 sm:right-5">
+                      <div className="absolute bottom-0 left-0 right-0 z-10">
 
-                        <div className="mb-1 text-[8px] font-black tracking-[0.17em] text-white/75 sm:text-[9px]">
+                        <div className="absolute inset-x-0 bottom-0 h-[115px] bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
 
-                          {passed
-                            ? "COMPLETED"
-                            : attempted
-                              ? "ATTEMPTED"
-                              : isTraining
-                                ? "TRAINING EXAM"
-                                : "KNOWLEDGE TEST"}
+                        <div className="relative px-4 pb-5 pt-3 sm:px-5 sm:pb-6">
+
+                          <div className="mb-1.5 text-[8px] font-black tracking-[0.17em] text-white/80 sm:text-[9px]">
+
+                            {passed
+                              ? "COMPLETED"
+                              : attempted
+                                ? "ATTEMPTED"
+                                : isTraining
+                                  ? "TRAINING EXAM"
+                                  : "KNOWLEDGE TEST"}
+
+                          </div>
+
+                          <h3 className="line-clamp-2 min-h-[40px] max-w-[95%] text-[15px] font-black leading-[1.35] text-white sm:min-h-[46px] sm:text-[17px]">
+
+                            {exam.title}
+
+                          </h3>
 
                         </div>
-
-                        <h3 className="line-clamp-2 text-[15px] font-black leading-[1.3] text-white sm:text-[17px]">
-                          {exam.title}
-                        </h3>
 
                       </div>
 
                     </div>
 
-                    {/* BODY */}
+                    {/* =========================================
+                        BODY
+                    ========================================= */}
 
                     <div className="p-4 sm:p-5">
 
@@ -1308,17 +1322,13 @@ export default function ExamsPage() {
                           className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-3 text-xs font-black text-white shadow-md transition hover:bg-orange-600 sm:mt-5 sm:rounded-2xl sm:px-5 sm:py-3.5 sm:text-sm"
                         >
 
-                          <span>
-                            🔄
-                          </span>
+                          <span>🔄</span>
 
                           <span>
                             ทำแบบทดสอบอีกครั้ง
                           </span>
 
-                          <span>
-                            →
-                          </span>
+                          <span>→</span>
 
                         </Link>
 
@@ -1329,17 +1339,13 @@ export default function ExamsPage() {
                           className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-xs font-black text-white shadow-md transition hover:bg-blue-700 sm:mt-5 sm:rounded-2xl sm:px-5 sm:py-3.5 sm:text-sm"
                         >
 
-                          <span>
-                            📝
-                          </span>
+                          <span>📝</span>
 
                           <span>
                             เริ่มทำแบบทดสอบ
                           </span>
 
-                          <span>
-                            →
-                          </span>
+                          <span>→</span>
 
                         </Link>
 
@@ -1348,6 +1354,7 @@ export default function ExamsPage() {
                     </div>
 
                   </article>
+
                 );
               }
             )}
@@ -1358,7 +1365,9 @@ export default function ExamsPage() {
 
       </section>
 
-      {/* FOOTER */}
+      {/* =====================================================
+          FOOTER
+      ===================================================== */}
 
       <footer className="border-t border-slate-200 bg-white">
 
