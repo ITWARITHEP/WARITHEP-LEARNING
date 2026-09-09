@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
@@ -68,6 +68,13 @@ const departmentIcons: Record<string, string> = {
   "ฝ่ายบริหารโครงการ": "📊",
 };
 
+function normalizeName(value: unknown): string {
+  return String(value ?? "")
+    .trim()
+    .replace(/\s+/g, "")
+    .toLowerCase();
+}
+
 export default function ExamsPage() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,39 +84,38 @@ export default function ExamsPage() {
 
   const [search, setSearch] = useState("");
 
-  /*
-   * ผลสอบล่าสุดของสมาชิก
-   *
-   * exam_id => ผลสอบล่าสุด
-   */
+  // ผลสอบล่าสุดของสมาชิกแต่ละบท
   const [examResults, setExamResults] =
     useState<Record<string, ExamResult>>({});
 
   // =========================================================
-  // หาสมาชิกที่ Login อยู่
+  // หา Member ปัจจุบัน
   // =========================================================
 
-  async function getCurrentMember(): Promise<Member | null> {
-    try {
-      // -----------------------------------------------------
-      // 1. หา Member ID ก่อน
-      // -----------------------------------------------------
+  const getCurrentMember = useCallback(
+    async (): Promise<Member | null> => {
+      try {
+        // -----------------------------------------------------
+        // 1. ใช้ Member ID ที่ Login เก็บไว้
+        // -----------------------------------------------------
 
-      const memberIdKeys = [
-        "warithep_learning_member_id",
-        "warithep_member_id",
-        "member_id",
-        "current_member_id",
-      ];
+        const memberIdKeys = [
+          "warithep_learning_member_id",
+          "warithep_member_id",
+          "member_id",
+          "current_member_id",
+        ];
 
-      for (const key of memberIdKeys) {
-        const storedId =
-          localStorage.getItem(key);
+        for (const key of memberIdKeys) {
+          const storedId =
+            localStorage.getItem(key)?.trim();
 
-        if (!storedId) continue;
+          if (!storedId) continue;
 
-        const { data, error } =
-          await supabase
+          const {
+            data,
+            error,
+          } = await supabase
             .from("members")
             .select(
               "id,name,full_name,first_name,last_name,department"
@@ -117,435 +123,503 @@ export default function ExamsPage() {
             .eq("id", storedId)
             .maybeSingle();
 
-        if (!error && data) {
-          return data as Member;
+          if (!error && data) {
+            return data as Member;
+          }
         }
-      }
 
-      // -----------------------------------------------------
-      // 2. ถ้าไม่มี Member ID
-      //    ให้หา Member จากข้อมูล Login
-      // -----------------------------------------------------
+        // -----------------------------------------------------
+        // 2. ใช้ข้อมูลสมาชิกที่ Login เก็บไว้
+        // -----------------------------------------------------
 
-      const nameKeys = [
-        "warithep_learning_login_name",
-        "warithep_learning_member",
-        "warithep_learning_user",
-        "current_member",
-        "currentMember",
-        "member",
-        "user",
-      ];
+        const objectKeys = [
+          "warithep_learning_member",
+          "warithep_learning_user",
+          "current_member",
+          "currentMember",
+          "member",
+          "user",
+        ];
 
-      for (const key of nameKeys) {
-        const storedValue =
-          localStorage.getItem(key);
+        for (const key of objectKeys) {
+          const stored =
+            localStorage.getItem(key);
 
-        if (!storedValue) continue;
+          if (!stored) continue;
 
-        let storedName = "";
+          let parsed: unknown = null;
 
-        // ---------------------------------------------------
-        // กรณีเป็น JSON
-        // ---------------------------------------------------
+          try {
+            parsed = JSON.parse(stored);
+          } catch {
+            parsed = stored;
+          }
 
-        try {
-          const parsed =
-            JSON.parse(storedValue);
+          let name = "";
 
           if (typeof parsed === "string") {
-            storedName = parsed;
+            name = parsed;
           } else if (
             parsed &&
             typeof parsed === "object"
           ) {
-            storedName =
-              parsed.name ||
-              parsed.full_name ||
-              parsed.member_name ||
-              "";
+            const value =
+              parsed as Record<string, unknown>;
+
+            name = String(
+              value.name ||
+                value.full_name ||
+                value.member_name ||
+                ""
+            );
 
             if (
-              !storedName &&
-              parsed.first_name &&
-              parsed.last_name
+              !name &&
+              value.first_name &&
+              value.last_name
             ) {
-              storedName =
-                `${parsed.first_name} ${parsed.last_name}`;
+              name =
+                `${value.first_name} ${value.last_name}`;
+            }
+
+            // ถ้ามี ID อยู่ใน object ให้ใช้ ID ก่อน
+            if (value.id) {
+              const {
+                data,
+                error,
+              } = await supabase
+                .from("members")
+                .select(
+                  "id,name,full_name,first_name,last_name,department"
+                )
+                .eq(
+                  "id",
+                  String(value.id)
+                )
+                .maybeSingle();
+
+              if (!error && data) {
+                return data as Member;
+              }
             }
           }
-        } catch {
-          // -------------------------------------------------
-          // กรณีเป็นข้อความธรรมดา
-          // -------------------------------------------------
 
-          storedName = storedValue;
-        }
+          if (!name.trim()) continue;
 
-        storedName =
-          String(storedName).trim();
-
-        if (!storedName) continue;
-
-        // ---------------------------------------------------
-        // ค้นจาก name
-        // ---------------------------------------------------
-
-        const { data: nameData } =
-          await supabase
+          // ลอง name
+          const {
+            data: nameData,
+          } = await supabase
             .from("members")
             .select(
               "id,name,full_name,first_name,last_name,department"
             )
-            .eq("name", storedName)
+            .eq("name", name.trim())
             .limit(1)
             .maybeSingle();
 
-        if (nameData) {
-          return nameData as Member;
-        }
+          if (nameData) {
+            return nameData as Member;
+          }
 
-        // ---------------------------------------------------
-        // ค้นจาก full_name
-        // ---------------------------------------------------
-
-        const { data: fullNameData } =
-          await supabase
+          // ลอง full_name
+          const {
+            data: fullNameData,
+          } = await supabase
             .from("members")
             .select(
               "id,name,full_name,first_name,last_name,department"
             )
-            .eq("full_name", storedName)
+            .eq(
+              "full_name",
+              name.trim()
+            )
             .limit(1)
             .maybeSingle();
 
-        if (fullNameData) {
-          return fullNameData as Member;
+          if (fullNameData) {
+            return fullNameData as Member;
+          }
         }
-      }
 
-      return null;
-    } catch (error) {
-      console.error(
-        "Get current member error:",
-        error
-      );
+        // -----------------------------------------------------
+        // 3. ใช้ชื่อ Login โดยตรง
+        // -----------------------------------------------------
 
-      return null;
-    }
-  }
+        const loginName =
+          localStorage.getItem(
+            "warithep_learning_login_name"
+          )?.trim();
 
-  // =========================================================
-  // สร้างชื่อสมาชิกสำหรับค้นผลสอบเก่า
-  // =========================================================
+        if (loginName) {
+          const {
+            data: nameData,
+          } = await supabase
+            .from("members")
+            .select(
+              "id,name,full_name,first_name,last_name,department"
+            )
+            .eq("name", loginName)
+            .limit(1)
+            .maybeSingle();
 
-  function getMemberNames(
-    member: Member
-  ): string[] {
-    const names = new Set<string>();
+          if (nameData) {
+            return nameData as Member;
+          }
 
-    if (member.name) {
-      names.add(
-        String(member.name).trim()
-      );
-    }
+          const {
+            data: fullNameData,
+          } = await supabase
+            .from("members")
+            .select(
+              "id,name,full_name,first_name,last_name,department"
+            )
+            .eq(
+              "full_name",
+              loginName
+            )
+            .limit(1)
+            .maybeSingle();
 
-    if (member.full_name) {
-      names.add(
-        String(member.full_name).trim()
-      );
-    }
+          if (fullNameData) {
+            return fullNameData as Member;
+          }
+        }
 
-    if (
-      member.first_name &&
-      member.last_name
-    ) {
-      names.add(
-        `${member.first_name} ${member.last_name}`.trim()
-      );
-    }
-
-    return Array.from(names).filter(Boolean);
-  }
-
-  // =========================================================
-  // โหลดแบบทดสอบ
-  // + โหลดผลสอบเก่าของสมาชิก
-  // =========================================================
-
-  async function loadExams() {
-    try {
-      setLoading(true);
-
-      // =====================================================
-      // โหลดแบบทดสอบที่เผยแพร่แล้ว
-      // =====================================================
-
-      const {
-        data: examData,
-        error: examError,
-      } = await supabase
-        .from("exams")
-        .select(
-          "id,title,department,description,question_count,passing_percent,published"
-        )
-        .eq("published", true)
-        .order("created_at", {
-          ascending: false,
-        });
-
-      if (examError) {
+        return null;
+      } catch (error) {
         console.error(
-          "Load exams error:",
-          examError
+          "getCurrentMember error:",
+          error
         );
 
-        setExams([]);
-        setExamResults({});
-        return;
+        return null;
       }
+    },
+    []
+  );
 
-      setExams(
-        (examData ?? []) as Exam[]
-      );
+  // =========================================================
+  // โหลดแบบทดสอบ + สถานะผลสอบ
+  // =========================================================
 
-      // =====================================================
-      // หา Member ปัจจุบัน
-      // =====================================================
+  const loadExams = useCallback(
+    async () => {
+      try {
+        setLoading(true);
 
-      const member =
-        await getCurrentMember();
+        // =====================================================
+        // 1. โหลดแบบทดสอบ
+        // =====================================================
 
-      if (!member?.id) {
-        console.log(
-          "ไม่พบ Member ที่ Login อยู่"
-        );
-
-        setExamResults({});
-        return;
-      }
-
-      const memberNames =
-        getMemberNames(member);
-
-      console.log(
-        "Current Member:",
-        member
-      );
-
-      console.log(
-        "Member names:",
-        memberNames
-      );
-
-      // =====================================================
-      // โหลดผลสอบด้วย MEMBER ID
-      //
-      // รองรับผลสอบใหม่
-      // =====================================================
-
-      const {
-        data: idResults,
-        error: idResultsError,
-      } = await supabase
-        .from("exam_results")
-        .select(
-          "id,exam_id,member_id,member_name,passed,score,total_score,percent,created_at"
-        )
-        .eq("member_id", member.id)
-        .order("created_at", {
-          ascending: false,
-        });
-
-      if (idResultsError) {
-        console.error(
-          "Load results by member_id error:",
-          idResultsError
-        );
-      }
-
-      // =====================================================
-      // โหลดผลสอบด้วย MEMBER NAME
-      //
-      // สำคัญมาก:
-      // รองรับผลสอบเก่าที่ไม่มี member_id
-      // =====================================================
-
-      let nameResults: ExamResult[] = [];
-
-      for (const memberName of memberNames) {
         const {
-          data,
-          error,
+          data: examData,
+          error: examError,
+        } = await supabase
+          .from("exams")
+          .select(
+            "id,title,department,description,question_count,passing_percent,published"
+          )
+          .eq("published", true)
+          .order("created_at", {
+            ascending: false,
+          });
+
+        if (examError) {
+          console.error(
+            "Load exams error:",
+            examError
+          );
+
+          setExams([]);
+          setExamResults({});
+          return;
+        }
+
+        setExams(
+          (examData ?? []) as Exam[]
+        );
+
+        // =====================================================
+        // 2. หาสมาชิกปัจจุบัน
+        // =====================================================
+
+        const member =
+          await getCurrentMember();
+
+        if (!member?.id) {
+          console.warn(
+            "ไม่พบสมาชิกปัจจุบัน"
+          );
+
+          setExamResults({});
+          return;
+        }
+
+        console.log(
+          "CURRENT MEMBER:",
+          member
+        );
+
+        // =====================================================
+        // 3. สร้างชื่อทั้งหมดที่เป็นไปได้
+        // =====================================================
+
+        const memberNames = new Set<string>();
+
+        if (member.name) {
+          memberNames.add(
+            normalizeName(member.name)
+          );
+        }
+
+        if (member.full_name) {
+          memberNames.add(
+            normalizeName(
+              member.full_name
+            )
+          );
+        }
+
+        if (
+          member.first_name &&
+          member.last_name
+        ) {
+          memberNames.add(
+            normalizeName(
+              `${member.first_name} ${member.last_name}`
+            )
+          );
+        }
+
+        // =====================================================
+        // 4. สำคัญมาก
+        //
+        // โหลด exam_results ที่มีอยู่ทั้งหมด
+        //
+        // ไม่กรอง member_id ตั้งแต่ SQL
+        // เพราะข้อมูลเก่าบางรายการอาจไม่มี member_id
+        // =====================================================
+
+        const {
+          data: allResults,
+          error: resultError,
         } = await supabase
           .from("exam_results")
           .select(
             "id,exam_id,member_id,member_name,passed,score,total_score,percent,created_at"
           )
-          .eq(
-            "member_name",
-            memberName
-          )
           .order("created_at", {
             ascending: false,
           });
 
-        if (error) {
+        if (resultError) {
           console.error(
-            "Load results by member_name error:",
-            error
+            "Load exam results error:",
+            resultError
           );
 
-          continue;
+          setExamResults({});
+          return;
         }
 
-        if (data) {
-          nameResults = [
-            ...nameResults,
-            ...(data as ExamResult[]),
-          ];
-        }
+        console.log(
+          "ALL EXAM RESULTS:",
+          allResults
+        );
+
+        // =====================================================
+        // 5. กรองเฉพาะผลสอบของสมาชิกคนนี้
+        //
+        // จับด้วย:
+        // - member_id
+        // - member_name
+        //
+        // รองรับข้อมูลเก่าด้วย
+        // =====================================================
+
+        const memberResults =
+          ((allResults ??
+            []) as ExamResult[]).filter(
+            (result) => {
+              // -----------------------------
+              // ID ตรง
+              // -----------------------------
+
+              if (
+                result.member_id &&
+                String(
+                  result.member_id
+                ) === String(member.id)
+              ) {
+                return true;
+              }
+
+              // -----------------------------
+              // ชื่อตรงหลัง normalize
+              // -----------------------------
+
+              if (
+                result.member_name &&
+                memberNames.has(
+                  normalizeName(
+                    result.member_name
+                  )
+                )
+              ) {
+                return true;
+              }
+
+              return false;
+            }
+          );
+
+        console.log(
+          "RESULTS OF CURRENT MEMBER:",
+          memberResults
+        );
+
+        // =====================================================
+        // 6. เอาผลล่าสุดของแต่ละแบบทดสอบ
+        // =====================================================
+
+        const latestResults: Record<
+          string,
+          ExamResult
+        > = {};
+
+        memberResults.forEach(
+          (result) => {
+            const old =
+              latestResults[
+                result.exam_id
+              ];
+
+            if (
+              !old ||
+              new Date(
+                result.created_at
+              ).getTime() >
+                new Date(
+                  old.created_at
+                ).getTime()
+            ) {
+              latestResults[
+                result.exam_id
+              ] = result;
+            }
+          }
+        );
+
+        console.log(
+          "LATEST RESULTS:",
+          latestResults
+        );
+
+        setExamResults(
+          latestResults
+        );
+      } catch (error) {
+        console.error(
+          "loadExams error:",
+          error
+        );
+
+        setExams([]);
+        setExamResults({});
+      } finally {
+        setLoading(false);
       }
-
-      // =====================================================
-      // รวมผลสอบทั้งหมด
-      // =====================================================
-
-      const allResults: ExamResult[] = [
-        ...((idResults ??
-          []) as ExamResult[]),
-        ...nameResults,
-      ];
-
-      console.log(
-        "ผลสอบที่ค้นพบทั้งหมด:",
-        allResults
-      );
-
-      // =====================================================
-      // กันข้อมูลซ้ำ
-      // =====================================================
-
-      const uniqueResults =
-        new Map<string, ExamResult>();
-
-      allResults.forEach((result) => {
-        const uniqueKey =
-          result.id ||
-          `${result.exam_id}_${result.created_at}_${result.member_name || ""}`;
-
-        if (
-          !uniqueResults.has(uniqueKey)
-        ) {
-          uniqueResults.set(
-            uniqueKey,
-            result
-          );
-        }
-      });
-
-      // =====================================================
-      // เก็บเฉพาะผลล่าสุดของแต่ละแบบทดสอบ
-      // =====================================================
-
-      const latestResultMap: Record<
-        string,
-        ExamResult
-      > = {};
-
-      Array.from(
-        uniqueResults.values()
-      ).forEach((result) => {
-        const existing =
-          latestResultMap[
-            result.exam_id
-          ];
-
-        if (
-          !existing ||
-          new Date(
-            result.created_at
-          ).getTime() >
-            new Date(
-              existing.created_at
-            ).getTime()
-        ) {
-          latestResultMap[
-            result.exam_id
-          ] = result;
-        }
-      });
-
-      console.log(
-        "ผลสอบล่าสุดของสมาชิก:",
-        latestResultMap
-      );
-
-      setExamResults(
-        latestResultMap
-      );
-    } catch (error) {
-      console.error(
-        "Load exams error:",
-        error
-      );
-
-      setExams([]);
-      setExamResults({});
-    } finally {
-      setLoading(false);
-    }
-  }
+    },
+    [getCurrentMember]
+  );
 
   // =========================================================
-  // โหลดเมื่อเปิดหน้า
+  // โหลดครั้งแรก
   // =========================================================
 
   useEffect(() => {
-    const timer =
-      window.setTimeout(() => {
+    void loadExams();
+  }, [loadExams]);
+
+  // =========================================================
+  // ถ้ากลับมาหน้านี้ / สลับกลับแท็บ
+  // ให้โหลดสถานะใหม่
+  // =========================================================
+
+  useEffect(() => {
+    const handleFocus =
+      () => {
         void loadExams();
-      }, 0);
+      };
+
+    const handlePageShow =
+      () => {
+        void loadExams();
+      };
+
+    window.addEventListener(
+      "focus",
+      handleFocus
+    );
+
+    window.addEventListener(
+      "pageshow",
+      handlePageShow
+    );
 
     return () => {
-      window.clearTimeout(timer);
+      window.removeEventListener(
+        "focus",
+        handleFocus
+      );
+
+      window.removeEventListener(
+        "pageshow",
+        handlePageShow
+      );
     };
-  }, []);
+  }, [loadExams]);
 
   // =========================================================
   // FILTER
   // =========================================================
 
-  const filteredExams = useMemo(() => {
-    const keyword =
-      search.trim().toLowerCase();
+  const filteredExams =
+    useMemo(() => {
+      const keyword =
+        search
+          .trim()
+          .toLowerCase();
 
-    return exams.filter((exam) => {
-      const matchDepartment =
-        selectedDepartment ===
-          "ทั้งหมด" ||
-        exam.department ===
-          selectedDepartment;
+      return exams.filter(
+        (exam) => {
+          const matchDepartment =
+            selectedDepartment ===
+              "ทั้งหมด" ||
+            exam.department ===
+              selectedDepartment;
 
-      const matchSearch =
-        !keyword ||
-        exam.title
-          .toLowerCase()
-          .includes(keyword) ||
-        exam.department
-          .toLowerCase()
-          .includes(keyword);
+          const matchSearch =
+            !keyword ||
+            exam.title
+              .toLowerCase()
+              .includes(keyword) ||
+            exam.department
+              .toLowerCase()
+              .includes(keyword);
 
-      return (
-        matchDepartment &&
-        matchSearch
+          return (
+            matchDepartment &&
+            matchSearch
+          );
+        }
       );
-    });
-  }, [
-    exams,
-    selectedDepartment,
-    search,
-  ]);
+    }, [
+      exams,
+      selectedDepartment,
+      search,
+    ]);
 
   // =========================================================
   // RENDER
@@ -554,9 +628,7 @@ export default function ExamsPage() {
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#f6f9fd] text-slate-900">
 
-      {/* ===================================================== */}
       {/* HEADER */}
-      {/* ===================================================== */}
 
       <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-xl">
 
@@ -595,21 +667,21 @@ export default function ExamsPage() {
 
               <Link
                 href="/courses"
-                className="hidden items-center gap-1.5 text-sm font-semibold text-slate-500 transition hover:text-blue-600 sm:flex"
+                className="hidden text-sm font-semibold text-slate-500 transition hover:text-blue-600 sm:flex"
               >
                 📚 หลักสูตร
               </Link>
 
               <Link
                 href="/knowledge"
-                className="hidden items-center gap-1.5 text-sm font-semibold text-slate-500 transition hover:text-blue-600 md:flex"
+                className="hidden text-sm font-semibold text-slate-500 transition hover:text-blue-600 md:flex"
               >
                 🎥 วิดีโอ
               </Link>
 
               <Link
                 href="/ranking"
-                className="flex items-center gap-1 text-xs font-bold text-slate-500 transition hover:text-blue-600 sm:text-sm"
+                className="text-xs font-bold text-slate-500 transition hover:text-blue-600 sm:text-sm"
               >
                 🏆 Ranking
               </Link>
@@ -629,9 +701,7 @@ export default function ExamsPage() {
 
       </header>
 
-      {/* ===================================================== */}
       {/* HERO */}
-      {/* ===================================================== */}
 
       <section className="relative overflow-hidden border-b border-slate-100 bg-white">
 
@@ -668,7 +738,7 @@ export default function ExamsPage() {
               className="group inline-flex w-fit items-center gap-2.5 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:text-blue-600 hover:shadow-md sm:px-5 sm:py-3.5"
             >
 
-              <span className="transition-transform group-hover:-translate-x-1">
+              <span>
                 ←
               </span>
 
@@ -680,7 +750,7 @@ export default function ExamsPage() {
 
           <div className="mt-6 max-w-3xl sm:mt-8">
 
-            <div className="flex h-12 items-center rounded-2xl border border-slate-200 bg-white px-3.5 shadow-sm transition focus-within:border-blue-300 focus-within:shadow-md sm:h-14 sm:px-4">
+            <div className="flex h-12 items-center rounded-2xl border border-slate-200 bg-white px-3.5 shadow-sm sm:h-14 sm:px-4">
 
               <span className="mr-2.5 text-lg sm:mr-3 sm:text-xl">
                 🔎
@@ -690,7 +760,9 @@ export default function ExamsPage() {
                 type="text"
                 value={search}
                 onChange={(e) =>
-                  setSearch(e.target.value)
+                  setSearch(
+                    e.target.value
+                  )
                 }
                 placeholder="ค้นหาแบบทดสอบหรือฝ่าย..."
                 className="w-full min-w-0 bg-transparent text-xs outline-none placeholder:text-slate-400 sm:text-sm"
@@ -704,9 +776,7 @@ export default function ExamsPage() {
 
       </section>
 
-      {/* ===================================================== */}
       {/* FILTER */}
-      {/* ===================================================== */}
 
       <section className="mx-auto max-w-[1500px] px-4 pt-4 sm:px-5 sm:pt-5 md:px-8">
 
@@ -720,7 +790,6 @@ export default function ExamsPage() {
                 department;
 
               return (
-
                 <button
                   key={department}
                   type="button"
@@ -731,8 +800,8 @@ export default function ExamsPage() {
                   }
                   className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[10px] font-bold transition-all sm:px-4 sm:py-2.5 sm:text-xs ${
                     active
-                      ? "bg-blue-600 text-white shadow-md shadow-blue-500/15"
-                      : "border border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-blue-600 hover:shadow-sm"
+                      ? "bg-blue-600 text-white shadow-md"
+                      : "border border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-blue-600"
                   }`}
                 >
 
@@ -750,7 +819,6 @@ export default function ExamsPage() {
                   {department}
 
                 </button>
-
               );
             }
           )}
@@ -759,9 +827,7 @@ export default function ExamsPage() {
 
       </section>
 
-      {/* ===================================================== */}
       {/* CONTENT */}
-      {/* ===================================================== */}
 
       <section className="mx-auto max-w-[1500px] px-4 pb-16 pt-4 sm:px-5 sm:pb-20 sm:pt-5 md:px-8">
 
@@ -780,18 +846,14 @@ export default function ExamsPage() {
           </div>
 
           <div className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-bold text-slate-500 shadow-sm sm:px-4 sm:py-2 sm:text-xs">
-
             {loading
               ? "กำลังโหลด..."
               : `${filteredExams.length} แบบทดสอบ`}
-
           </div>
 
         </div>
 
-        {/* ===================================================== */}
         {/* LOADING */}
-        {/* ===================================================== */}
 
         {loading ? (
 
@@ -799,12 +861,10 @@ export default function ExamsPage() {
 
             {[1, 2, 3, 4, 5, 6].map(
               (item) => (
-
                 <div
                   key={item}
-                  className="h-[300px] animate-pulse rounded-[22px] border border-slate-200 bg-white sm:h-[310px] sm:rounded-[26px]"
+                  className="h-[310px] animate-pulse rounded-[26px] border border-slate-200 bg-white"
                 />
-
               )
             )}
 
@@ -813,28 +873,20 @@ export default function ExamsPage() {
         ) : filteredExams.length ===
           0 ? (
 
-          <div className="relative overflow-hidden rounded-[24px] border border-blue-100 bg-white px-5 py-16 text-center shadow-sm sm:rounded-[30px] sm:px-6 sm:py-20">
+          <div className="rounded-[30px] border border-blue-100 bg-white px-5 py-20 text-center shadow-sm">
 
-            <div className="relative">
-
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[20px] bg-blue-50 text-3xl sm:h-20 sm:w-20 sm:rounded-[24px] sm:text-4xl">
-                📝
-              </div>
-
-              <h2 className="mt-5 text-xl font-black text-slate-900 sm:mt-6 sm:text-2xl">
-                ยังไม่มีแบบทดสอบ
-              </h2>
-
-              <p className="mx-auto mt-2.5 max-w-lg text-xs leading-6 text-slate-500 sm:mt-3 sm:text-sm sm:leading-7">
-                เมื่อผู้ดูแลระบบสร้างและเผยแพร่แบบทดสอบแล้ว
-                แบบทดสอบจะปรากฏในหน้านี้
-              </p>
-
-              <div className="mx-auto mt-5 inline-flex items-center gap-2 rounded-full bg-slate-50 px-3.5 py-2 text-[10px] font-semibold text-slate-400 sm:mt-6 sm:px-4 sm:text-xs">
-                📋 รอแบบทดสอบจากผู้ดูแลระบบ
-              </div>
-
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[24px] bg-blue-50 text-4xl">
+              📝
             </div>
+
+            <h2 className="mt-6 text-2xl font-black text-slate-900">
+              ยังไม่มีแบบทดสอบ
+            </h2>
+
+            <p className="mx-auto mt-3 max-w-lg text-sm leading-7 text-slate-500">
+              เมื่อผู้ดูแลระบบสร้างและเผยแพร่แบบทดสอบแล้ว
+              แบบทดสอบจะปรากฏในหน้านี้
+            </p>
 
           </div>
 
@@ -850,24 +902,17 @@ export default function ExamsPage() {
                     exam.department
                   ] || "📝";
 
-                // =================================================
-                // ผลสอบล่าสุดของสมาชิกสำหรับบทนี้
-                // =================================================
-
                 const result =
                   examResults[
                     exam.id
                   ];
 
-                // เคยสอบหรือยัง
                 const attempted =
                   !!result;
 
-                // ผ่านหรือไม่
                 const passed =
                   result?.passed === true;
 
-                // คะแนนล่าสุด
                 const resultPercent =
                   Number(
                     result?.percent || 0
@@ -881,17 +926,15 @@ export default function ExamsPage() {
                       passed
                         ? "border-green-300 bg-green-50/60 shadow-green-100"
                         : attempted
-                          ? "border-orange-200 bg-orange-50/30 hover:-translate-y-1 hover:shadow-xl"
+                          ? "border-orange-200 bg-orange-50/30"
                           : "border-slate-200 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl"
                     }`}
                   >
 
-                    {/* ================================================= */}
                     {/* CARD HEADER */}
-                    {/* ================================================= */}
 
                     <div
-                      className={`relative h-[150px] overflow-hidden sm:h-[165px] ${
+                      className={`relative h-[165px] overflow-hidden ${
                         passed
                           ? "bg-gradient-to-br from-[#16a34a] via-[#22c55e] to-[#15803d]"
                           : attempted
@@ -902,11 +945,7 @@ export default function ExamsPage() {
 
                       <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
 
-                      <div className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-cyan-100/10 blur-3xl" />
-
-                      {/* ================================================= */}
                       {/* STATUS */}
-                      {/* ================================================= */}
 
                       <div className="absolute left-4 top-4 z-10 sm:left-5 sm:top-5">
 
@@ -933,9 +972,7 @@ export default function ExamsPage() {
 
                       </div>
 
-                      {/* ================================================= */}
                       {/* DEPARTMENT */}
-                      {/* ================================================= */}
 
                       <div className="absolute right-3 top-3 max-w-[58%] sm:right-4 sm:top-4">
 
@@ -949,9 +986,7 @@ export default function ExamsPage() {
 
                       </div>
 
-                      {/* ================================================= */}
                       {/* ICON */}
-                      {/* ================================================= */}
 
                       <div className="absolute left-4 top-4 sm:left-5 sm:top-5">
 
@@ -963,24 +998,20 @@ export default function ExamsPage() {
                               : ""
                           }`}
                         >
-
                           {passed
                             ? "🏆"
                             : attempted
                               ? "📝"
                               : icon}
-
                         </div>
 
                       </div>
 
-                      {/* ================================================= */}
                       {/* TITLE */}
-                      {/* ================================================= */}
 
                       <div className="absolute bottom-4 left-4 right-4 sm:bottom-5 sm:left-5 sm:right-5">
 
-                        <div className="mb-1 text-[8px] font-black tracking-[0.17em] text-white/75 sm:mb-1.5 sm:text-[9px]">
+                        <div className="mb-1 text-[8px] font-black tracking-[0.17em] text-white/75 sm:text-[9px]">
 
                           {passed
                             ? "COMPLETED"
@@ -998,15 +1029,11 @@ export default function ExamsPage() {
 
                     </div>
 
-                    {/* ================================================= */}
                     {/* BODY */}
-                    {/* ================================================= */}
 
                     <div className="p-4 sm:p-5">
 
-                      {/* ================================================= */}
                       {/* STATUS BOX */}
-                      {/* ================================================= */}
 
                       <div
                         className={`mb-3 rounded-xl border px-3 py-2.5 text-xs font-bold ${
@@ -1064,9 +1091,7 @@ export default function ExamsPage() {
 
                       </div>
 
-                      {/* ================================================= */}
                       {/* DESCRIPTION */}
-                      {/* ================================================= */}
 
                       <p className="line-clamp-2 min-h-[44px] text-xs leading-5 text-slate-500 sm:min-h-[48px] sm:text-sm sm:leading-6">
 
@@ -1079,9 +1104,7 @@ export default function ExamsPage() {
 
                       </p>
 
-                      {/* ================================================= */}
                       {/* INFO */}
-                      {/* ================================================= */}
 
                       <div className="mt-4 grid grid-cols-2 gap-2.5 sm:mt-5 sm:gap-3">
 
@@ -1143,25 +1166,20 @@ export default function ExamsPage() {
 
                       </div>
 
-                      {/* ================================================= */}
                       {/* BUTTON */}
-                      {/* ================================================= */}
 
                       {passed ? (
 
                         <div className="mt-4 flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-green-200 bg-green-100 px-4 py-3 text-xs font-black text-green-700 sm:mt-5 sm:rounded-2xl sm:px-5 sm:py-3.5 sm:text-sm">
 
-                          <span>
-                            🏆
-                          </span>
+                          <span>🏆</span>
 
                           <span>
-                            ผ่านแล้ว • {resultPercent.toFixed(0)}%
+                            ผ่านแล้ว •{" "}
+                            {resultPercent.toFixed(0)}%
                           </span>
 
-                          <span>
-                            ✓
-                          </span>
+                          <span>✓</span>
 
                         </div>
 
@@ -1169,7 +1187,7 @@ export default function ExamsPage() {
 
                         <Link
                           href={`/exams/${exam.id}`}
-                          className="group/button mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-3 text-xs font-black text-white shadow-md shadow-orange-500/15 transition-all hover:bg-orange-600 hover:shadow-lg sm:mt-5 sm:rounded-2xl sm:px-5 sm:py-3.5 sm:text-sm"
+                          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-3 text-xs font-black text-white shadow-md transition hover:bg-orange-600 sm:mt-5 sm:rounded-2xl sm:px-5 sm:py-3.5 sm:text-sm"
                         >
 
                           <span>
@@ -1180,7 +1198,7 @@ export default function ExamsPage() {
                             ทำแบบทดสอบอีกครั้ง
                           </span>
 
-                          <span className="transition-transform group-hover/button:translate-x-1">
+                          <span>
                             →
                           </span>
 
@@ -1190,7 +1208,7 @@ export default function ExamsPage() {
 
                         <Link
                           href={`/exams/${exam.id}`}
-                          className="group/button mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-xs font-black text-white shadow-md shadow-blue-500/15 transition-all hover:bg-blue-700 hover:shadow-lg sm:mt-5 sm:rounded-2xl sm:px-5 sm:py-3.5 sm:text-sm"
+                          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-xs font-black text-white shadow-md transition hover:bg-blue-700 sm:mt-5 sm:rounded-2xl sm:px-5 sm:py-3.5 sm:text-sm"
                         >
 
                           <span>
@@ -1201,7 +1219,7 @@ export default function ExamsPage() {
                             เริ่มทำแบบทดสอบ
                           </span>
 
-                          <span className="transition-transform group-hover/button:translate-x-1">
+                          <span>
                             →
                           </span>
 
@@ -1212,20 +1230,16 @@ export default function ExamsPage() {
                     </div>
 
                   </article>
-
                 );
               }
             )}
 
           </div>
-
         )}
 
       </section>
 
-      {/* ===================================================== */}
       {/* FOOTER */}
-      {/* ===================================================== */}
 
       <footer className="border-t border-slate-200 bg-white">
 
