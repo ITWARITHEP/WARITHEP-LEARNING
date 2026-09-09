@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -97,8 +102,7 @@ type Stats = {
   standards: Record<string, number>;
   videos: Record<string, number>;
 };
-
-export default function CoursesPage() {
+function CoursesPageContent() {
   const searchParams = useSearchParams();
 
   const section =
@@ -992,5 +996,21 @@ export default function CoursesPage() {
       </section>
 
     </main>
+    );
+}
+
+export default function CoursesPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-[#f5f8fc]">
+          <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5 text-sm font-bold text-slate-500 shadow-sm">
+            กำลังโหลดหลักสูตร...
+          </div>
+        </main>
+      }
+    >
+      <CoursesPageContent />
+    </Suspense>
   );
 }
