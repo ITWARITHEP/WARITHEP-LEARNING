@@ -14,6 +14,11 @@ type Exam = {
   published: boolean;
 };
 
+type ExamResult = {
+  exam_id: string;
+  passed: boolean;
+};
+
 const departments = [
   "ทั้งหมด",
   "ฝ่ายสำนักบริหารกลาง",
@@ -50,32 +55,97 @@ const departmentIcons: Record<string, string> = {
 export default function ExamsPage() {
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [selectedDepartment, setSelectedDepartment] =
     useState("ทั้งหมด");
+
   const [search, setSearch] = useState("");
+
+  // เก็บสถานะว่า exam ไหนผ่านแล้ว
+  const [passedExams, setPassedExams] =
+    useState<Record<string, boolean>>({});
 
   async function loadExams() {
     try {
       setLoading(true);
 
-      const { data, error } = await supabase
-        .from("exams")
-        .select(
-  "id,title,department,description,question_count,passing_percent,published"
-)
-        .eq("published", true)
-        .order("created_at", { ascending: false });
+      // =====================================================
+      // โหลดแบบทดสอบ
+      // =====================================================
 
-      if (error) {
-        console.error("Load exams error:", error);
+      const { data: examData, error: examError } =
+        await supabase
+          .from("exams")
+          .select(
+            "id,title,department,description,question_count,passing_percent,published"
+          )
+          .eq("published", true)
+          .order("created_at", { ascending: false });
+
+      if (examError) {
+        console.error("Load exams error:", examError);
         setExams([]);
         return;
       }
 
-      setExams(data ?? []);
+      setExams(examData ?? []);
+
+      // =====================================================
+      // หาสมาชิกปัจจุบัน
+      // =====================================================
+
+      const memberId =
+        localStorage.getItem(
+          "warithep_learning_member_id"
+        ) ||
+        localStorage.getItem("warithep_member_id") ||
+        localStorage.getItem("member_id") ||
+        localStorage.getItem("current_member_id");
+
+      if (!memberId) {
+        setPassedExams({});
+        return;
+      }
+
+      // =====================================================
+      // โหลดผลสอบของสมาชิกคนนี้
+      // =====================================================
+
+      const { data: resultData, error: resultError } =
+        await supabase
+          .from("exam_results")
+          .select("exam_id,passed")
+          .eq("member_id", memberId);
+
+      if (resultError) {
+        console.error(
+          "Load exam results error:",
+          resultError
+        );
+
+        setPassedExams({});
+        return;
+      }
+
+      // =====================================================
+      // สร้าง Map เฉพาะบทที่ "ผ่าน"
+      // =====================================================
+
+      const passedMap: Record<string, boolean> = {};
+
+      (resultData as ExamResult[] | null)?.forEach(
+        (result) => {
+          if (result.passed === true) {
+            passedMap[result.exam_id] = true;
+          }
+        }
+      );
+
+      setPassedExams(passedMap);
     } catch (error) {
       console.error("Load exams error:", error);
       setExams([]);
+      setPassedExams({});
     } finally {
       setLoading(false);
     }
@@ -106,7 +176,11 @@ export default function ExamsPage() {
 
       return matchDepartment && matchSearch;
     });
-  }, [exams, selectedDepartment, search]);
+  }, [
+    exams,
+    selectedDepartment,
+    search,
+  ]);
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#f6f9fd] text-slate-900">
@@ -120,8 +194,6 @@ export default function ExamsPage() {
         <div className="mx-auto max-w-[1500px] px-4 sm:px-5 md:px-8">
 
           <div className="flex h-[64px] items-center justify-between sm:h-[72px]">
-
-            {/* LOGO */}
 
             <Link
               href="/dashboard"
@@ -149,9 +221,6 @@ export default function ExamsPage() {
               </div>
 
             </Link>
-
-
-            {/* NAVIGATION */}
 
             <nav className="flex items-center gap-1.5 sm:gap-3 md:gap-6">
 
@@ -191,27 +260,17 @@ export default function ExamsPage() {
 
       </header>
 
-
       {/* ===================================================== */}
       {/* HERO */}
       {/* ===================================================== */}
 
       <section className="relative overflow-hidden border-b border-slate-100 bg-white">
 
-        {/* SOFT BACKGROUND */}
-
         <div className="pointer-events-none absolute -right-32 -top-32 h-[360px] w-[360px] rounded-full bg-blue-100/50 blur-3xl sm:h-[500px] sm:w-[500px]" />
 
         <div className="pointer-events-none absolute -left-32 top-32 h-[300px] w-[300px] rounded-full bg-sky-100/40 blur-3xl sm:h-[420px] sm:w-[420px]" />
 
-        <div className="pointer-events-none absolute right-[15%] top-5 text-[130px] leading-none text-blue-500/[0.018] sm:text-[180px]">
-          
-        </div>
-
-
         <div className="relative mx-auto max-w-[1500px] px-4 pb-7 pt-8 sm:px-5 sm:pb-8 sm:pt-10 md:px-8 md:pb-10 md:pt-14">
-
-          {/* BADGE */}
 
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-[10px] font-black text-blue-700 sm:mb-5 sm:px-3.5 sm:py-2 sm:text-xs">
 
@@ -220,7 +279,6 @@ export default function ExamsPage() {
             LEARNING CENTER
 
           </div>
-
 
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
 
@@ -235,9 +293,6 @@ export default function ExamsPage() {
               </p>
 
             </div>
-
-
-            {/* DASHBOARD */}
 
             <Link
               href="/dashboard"
@@ -254,9 +309,6 @@ export default function ExamsPage() {
 
           </div>
 
-
-          {/* SEARCH */}
-
           <div className="mt-6 max-w-3xl sm:mt-8">
 
             <div className="flex h-12 items-center rounded-2xl border border-slate-200 bg-white px-3.5 shadow-sm transition focus-within:border-blue-300 focus-within:shadow-md sm:h-14 sm:px-4">
@@ -268,7 +320,9 @@ export default function ExamsPage() {
               <input
                 type="text"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) =>
+                  setSearch(e.target.value)
+                }
                 placeholder="ค้นหาแบบทดสอบหรือฝ่าย..."
                 className="w-full min-w-0 bg-transparent text-xs outline-none placeholder:text-slate-400 sm:text-sm"
               />
@@ -280,7 +334,6 @@ export default function ExamsPage() {
         </div>
 
       </section>
-
 
       {/* ===================================================== */}
       {/* DEPARTMENT FILTER */}
@@ -328,7 +381,6 @@ export default function ExamsPage() {
 
       </section>
 
-
       {/* ===================================================== */}
       {/* CONTENT */}
       {/* ===================================================== */}
@@ -349,7 +401,6 @@ export default function ExamsPage() {
 
           </div>
 
-
           <div className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-bold text-slate-500 shadow-sm sm:px-4 sm:py-2 sm:text-xs">
 
             {loading
@@ -359,7 +410,6 @@ export default function ExamsPage() {
           </div>
 
         </div>
-
 
         {/* ===================================================== */}
         {/* LOADING */}
@@ -382,20 +432,7 @@ export default function ExamsPage() {
 
         ) : filteredExams.length === 0 ? (
 
-          /* ================================================= */
-          /* EMPTY */
-          /* ================================================= */
-
           <div className="relative overflow-hidden rounded-[24px] border border-blue-100 bg-white px-5 py-16 text-center shadow-sm sm:rounded-[30px] sm:px-6 sm:py-20">
-
-            <div className="pointer-events-none absolute -right-10 -top-16 text-[150px] leading-none text-blue-500/[0.018] sm:text-[180px]">
-              
-            </div>
-
-            <div className="pointer-events-none absolute -bottom-20 -left-10 text-[130px] leading-none text-blue-500/[0.015] sm:text-[150px]">
-              
-            </div>
-
 
             <div className="relative">
 
@@ -428,10 +465,6 @@ export default function ExamsPage() {
 
         ) : (
 
-          /* ================================================= */
-          /* EXAM CARDS */
-          /* ================================================= */
-
           <div className="grid gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-3">
 
             {filteredExams.map((exam) => {
@@ -439,50 +472,55 @@ export default function ExamsPage() {
               const icon =
                 departmentIcons[exam.department] || "📝";
 
+              const passed =
+                passedExams[exam.id] === true;
+
               return (
 
                 <article
                   key={exam.id}
-                  className="group relative overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl sm:rounded-[26px]"
+                  className={`group relative overflow-hidden rounded-[22px] border bg-white shadow-sm transition-all duration-300 sm:rounded-[26px] ${
+                    passed
+                      ? "border-green-300 bg-green-50/60 shadow-green-100"
+                      : "border-slate-200 hover:-translate-y-1 hover:border-blue-200 hover:shadow-xl"
+                  }`}
                 >
 
                   {/* ================================================= */}
-                  {/* LIGHT ICE BLUE HEADER */}
+                  {/* HEADER */}
                   {/* ================================================= */}
 
-                  <div className="relative h-[150px] overflow-hidden bg-gradient-to-br from-[#2f7df4] via-[#4f93f7] to-[#3973dd] sm:h-[165px]">
-
-                    {/* SOFT GLOW */}
+                  <div
+                    className={`relative h-[150px] overflow-hidden sm:h-[165px] ${
+                      passed
+                        ? "bg-gradient-to-br from-[#16a34a] via-[#22c55e] to-[#15803d]"
+                        : "bg-gradient-to-br from-[#2f7df4] via-[#4f93f7] to-[#3973dd]"
+                    }`}
+                  >
 
                     <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
 
                     <div className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-cyan-100/10 blur-3xl" />
 
+                    {/* สถานะผ่าน */}
 
-                    {/* ================================================= */}
-                    {/* VERY LIGHT ICE */}
-                    {/* ================================================= */}
+                    {passed && (
+                      <div className="absolute left-4 top-4 z-10 sm:left-5 sm:top-5">
 
-                    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                        <div className="flex items-center gap-1.5 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-[10px] font-black text-white shadow-sm backdrop-blur-md sm:text-xs">
 
-                      <div className="absolute -right-5 -top-14 rotate-12 text-[120px] leading-none text-white/[0.035] sm:text-[140px]">
-                        
+                          <span>
+                            ✓
+                          </span>
+
+                          ผ่านแล้ว
+
+                        </div>
+
                       </div>
+                    )}
 
-                      <div className="absolute bottom-[-45px] right-16 -rotate-12 text-[85px] leading-none text-white/[0.022] sm:text-[100px]">
-                        
-                      </div>
-
-                      <div className="absolute -bottom-[55px] -left-8 rotate-12 text-[100px] leading-none text-white/[0.018] sm:text-[120px]">
-                        
-                      </div>
-
-                    </div>
-
-
-                    {/* ================================================= */}
                     {/* DEPARTMENT */}
-                    {/* ================================================= */}
 
                     <div className="absolute right-3 top-3 max-w-[58%] sm:right-4 sm:top-4">
 
@@ -496,30 +534,30 @@ export default function ExamsPage() {
 
                     </div>
 
-
-                    {/* ================================================= */}
                     {/* ICON */}
-                    {/* ================================================= */}
 
                     <div className="absolute left-4 top-4 sm:left-5 sm:top-5">
 
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/25 bg-white/20 text-2xl shadow-sm backdrop-blur-sm sm:h-14 sm:w-14 sm:rounded-2xl sm:text-3xl">
+                      <div className={`flex h-12 w-12 items-center justify-center rounded-xl border border-white/25 bg-white/20 text-2xl shadow-sm backdrop-blur-sm sm:h-14 sm:w-14 sm:rounded-2xl sm:text-3xl ${
+                        passed ? "mt-9 sm:mt-9" : ""
+                      }`}>
 
-                        {icon}
+                        {passed ? "🏆" : icon}
 
                       </div>
 
                     </div>
 
-
-                    {/* ================================================= */}
                     {/* TITLE */}
-                    {/* ================================================= */}
 
                     <div className="absolute bottom-4 left-4 right-4 sm:bottom-5 sm:left-5 sm:right-5">
 
                       <div className="mb-1 text-[8px] font-black tracking-[0.17em] text-white/75 sm:mb-1.5 sm:text-[9px] sm:tracking-[0.2em]">
-                        KNOWLEDGE TEST
+
+                        {passed
+                          ? "COMPLETED"
+                          : "KNOWLEDGE TEST"}
+
                       </div>
 
                       <h3 className="line-clamp-2 text-[15px] font-black leading-[1.3] text-white sm:text-[17px]">
@@ -530,7 +568,6 @@ export default function ExamsPage() {
 
                   </div>
 
-
                   {/* ================================================= */}
                   {/* BODY */}
                   {/* ================================================= */}
@@ -539,36 +576,52 @@ export default function ExamsPage() {
 
                     <p className="line-clamp-2 min-h-[44px] text-xs leading-5 text-slate-500 sm:min-h-[48px] sm:text-sm sm:leading-6">
 
-                      {exam.description ||
-                        "แบบทดสอบเพื่อประเมินความรู้และความเข้าใจ"}
+                      {passed
+                        ? "คุณผ่านแบบทดสอบบทนี้เรียบร้อยแล้ว"
+                        : exam.description ||
+                          "แบบทดสอบเพื่อประเมินความรู้และความเข้าใจ"}
 
                     </p>
-
 
                     {/* INFO */}
 
                     <div className="mt-4 grid grid-cols-2 gap-2.5 sm:mt-5 sm:gap-3">
 
-                      <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 sm:rounded-2xl sm:p-3.5">
+                      <div className={`rounded-xl border p-3 sm:rounded-2xl sm:p-3.5 ${
+                        passed
+                          ? "border-green-100 bg-green-50"
+                          : "border-slate-100 bg-slate-50"
+                      }`}>
 
                         <div className="text-[10px] font-semibold text-slate-400 sm:text-[11px]">
                           จำนวนข้อ
                         </div>
 
-                        <div className="mt-1 text-xl font-black text-slate-900 sm:text-2xl">
+                        <div className={`mt-1 text-xl font-black sm:text-2xl ${
+                          passed
+                            ? "text-green-700"
+                            : "text-slate-900"
+                        }`}>
                           {exam.question_count}
                         </div>
 
                       </div>
 
-
-                      <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 sm:rounded-2xl sm:p-3.5">
+                      <div className={`rounded-xl border p-3 sm:rounded-2xl sm:p-3.5 ${
+                        passed
+                          ? "border-green-100 bg-green-50"
+                          : "border-slate-100 bg-slate-50"
+                      }`}>
 
                         <div className="text-[10px] font-semibold text-slate-400 sm:text-[11px]">
                           เกณฑ์ผ่าน
                         </div>
 
-                        <div className="mt-1 text-xl font-black text-slate-900 sm:text-2xl">
+                        <div className={`mt-1 text-xl font-black sm:text-2xl ${
+                          passed
+                            ? "text-green-700"
+                            : "text-slate-900"
+                        }`}>
                           {exam.passing_percent}%
                         </div>
 
@@ -576,27 +629,48 @@ export default function ExamsPage() {
 
                     </div>
 
-
                     {/* BUTTON */}
 
-                    <Link
-                      href={`/exams/${exam.id}`}
-                      className="group/button mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-xs font-black text-white shadow-md shadow-blue-500/15 transition-all hover:bg-blue-700 hover:shadow-lg sm:mt-5 sm:rounded-2xl sm:px-5 sm:py-3.5 sm:text-sm"
-                    >
+                    {passed ? (
 
-                      <span>
-                        📝
-                      </span>
+                      <div className="mt-4 flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-green-200 bg-green-100 px-4 py-3 text-xs font-black text-green-700 sm:mt-5 sm:rounded-2xl sm:px-5 sm:py-3.5 sm:text-sm">
 
-                      <span>
-                        เริ่มทำแบบทดสอบ
-                      </span>
+                        <span>
+                          🔒
+                        </span>
 
-                      <span className="transition-transform group-hover/button:translate-x-1">
-                        →
-                      </span>
+                        <span>
+                          ผ่านแล้ว • ไม่สามารถทำซ้ำ
+                        </span>
 
-                    </Link>
+                        <span>
+                          ✓
+                        </span>
+
+                      </div>
+
+                    ) : (
+
+                      <Link
+                        href={`/exams/${exam.id}`}
+                        className="group/button mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-xs font-black text-white shadow-md shadow-blue-500/15 transition-all hover:bg-blue-700 hover:shadow-lg sm:mt-5 sm:rounded-2xl sm:px-5 sm:py-3.5 sm:text-sm"
+                      >
+
+                        <span>
+                          📝
+                        </span>
+
+                        <span>
+                          เริ่มทำแบบทดสอบ
+                        </span>
+
+                        <span className="transition-transform group-hover/button:translate-x-1">
+                          →
+                        </span>
+
+                      </Link>
+
+                    )}
 
                   </div>
 
@@ -611,7 +685,6 @@ export default function ExamsPage() {
         )}
 
       </section>
-
 
       {/* ===================================================== */}
       {/* FOOTER */}
