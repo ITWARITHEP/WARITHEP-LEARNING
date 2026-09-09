@@ -1,29 +1,58 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
+type Stats = {
+  members: number;
+  courses: number;
+  videos: number;
+  quizzes: number;
+  standards: number;
+  standardFiles: number;
+  examResults: number;
+};
+
 export default function AdminPage() {
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<Stats>({
     members: 0,
     courses: 0,
     videos: 0,
     quizzes: 0,
     standards: 0,
+    standardFiles: 0,
+    examResults: 0,
   });
 
   const [loading, setLoading] = useState(true);
 
-  async function loadStats() {
+  // =========================================================
+  // LOAD REAL DATABASE STATS
+  // =========================================================
+
+  const loadStats = useCallback(async () => {
     setLoading(true);
 
     try {
       const [
+        membersResult,
         coursesResult,
         videosResult,
+        quizzesResult,
         standardsResult,
+        standardFilesResult,
+        examResultsResult,
       ] = await Promise.all([
+        // MEMBERS
+        supabase
+          .from("members")
+          .select("*", {
+            count: "exact",
+            head: true,
+          }),
+
+        // COURSES
         supabase
           .from("courses")
           .select("*", {
@@ -31,6 +60,7 @@ export default function AdminPage() {
             head: true,
           }),
 
+        // VIDEOS
         supabase
           .from("knowledge_videos")
           .select("*", {
@@ -38,38 +68,114 @@ export default function AdminPage() {
             head: true,
           }),
 
+        // EXAMS
+        supabase
+          .from("exams")
+          .select("*", {
+            count: "exact",
+            head: true,
+          }),
+
+        // STANDARDS
         supabase
           .from("department_standards")
           .select("*", {
             count: "exact",
             head: true,
           }),
+
+        // STANDARD FILES
+        supabase
+          .from("standard_files")
+          .select("*", {
+            count: "exact",
+            head: true,
+          }),
+
+        // EXAM RESULTS
+        supabase
+          .from("exam_results")
+          .select("*", {
+            count: "exact",
+            head: true,
+          }),
       ]);
 
-      let memberCount = 0;
+      // =====================================================
+      // LOG ERROR แยกแต่ละ TABLE
+      // =====================================================
 
-      try {
-        const savedMember =
-          localStorage.getItem(
-            "warithep_learning_member"
-          );
-
-        if (savedMember) {
-          memberCount = 1;
-        }
-      } catch {
-        memberCount = 0;
+      if (membersResult.error) {
+        console.error(
+          "โหลด members ไม่สำเร็จ:",
+          membersResult.error
+        );
       }
 
+      if (coursesResult.error) {
+        console.error(
+          "โหลด courses ไม่สำเร็จ:",
+          coursesResult.error
+        );
+      }
+
+      if (videosResult.error) {
+        console.error(
+          "โหลด knowledge_videos ไม่สำเร็จ:",
+          videosResult.error
+        );
+      }
+
+      if (quizzesResult.error) {
+        console.error(
+          "โหลด exams ไม่สำเร็จ:",
+          quizzesResult.error
+        );
+      }
+
+      if (standardsResult.error) {
+        console.error(
+          "โหลด department_standards ไม่สำเร็จ:",
+          standardsResult.error
+        );
+      }
+
+      if (standardFilesResult.error) {
+        console.error(
+          "โหลด standard_files ไม่สำเร็จ:",
+          standardFilesResult.error
+        );
+      }
+
+      if (examResultsResult.error) {
+        console.error(
+          "โหลด exam_results ไม่สำเร็จ:",
+          examResultsResult.error
+        );
+      }
+
+      // =====================================================
+      // SET REAL STATS
+      // =====================================================
+
       setStats({
-        members: memberCount,
-        courses:
-          coursesResult.count ?? 0,
-        videos:
-          videosResult.count ?? 0,
-        quizzes: 0,
-        standards:
-          standardsResult.count ?? 0,
+        members: membersResult.count ?? 0,
+        courses: coursesResult.count ?? 0,
+        videos: videosResult.count ?? 0,
+        quizzes: quizzesResult.count ?? 0,
+        standards: standardsResult.count ?? 0,
+        standardFiles: standardFilesResult.count ?? 0,
+        examResults: examResultsResult.count ?? 0,
+      });
+
+      console.log("ADMIN DASHBOARD STATS:", {
+        members: membersResult.count ?? 0,
+        courses: coursesResult.count ?? 0,
+        videos: videosResult.count ?? 0,
+        quizzes: quizzesResult.count ?? 0,
+        standards: standardsResult.count ?? 0,
+        standardFiles: standardFilesResult.count ?? 0,
+        examResults: examResultsResult.count ?? 0,
       });
     } catch (error) {
       console.error(
@@ -79,35 +185,31 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  // =========================================================
+  // INITIAL LOAD + AUTO REFRESH
+  // =========================================================
 
   useEffect(() => {
-    let active = true;
-
-    async function initialLoad() {
-      if (!active) return;
-
-      await loadStats();
-    }
-
-    void initialLoad();
+    void loadStats();
 
     const timer = setInterval(() => {
-      if (active) {
-        void loadStats();
-      }
+      void loadStats();
     }, 10000);
 
     return () => {
-      active = false;
       clearInterval(timer);
     };
-  }, []);
+  }, [loadStats]);
 
   return (
     <main className="min-h-screen bg-slate-50">
 
-      {/* HEADER */}
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
+
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white">
 
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
@@ -122,6 +224,7 @@ export default function AdminPage() {
             </div>
 
             <div>
+
               <div className="font-black text-slate-900">
                 วารีเทพ
               </div>
@@ -129,6 +232,7 @@ export default function AdminPage() {
               <div className="text-xs font-bold tracking-widest text-blue-600">
                 LEARNING ADMIN
               </div>
+
             </div>
 
           </Link>
@@ -144,10 +248,16 @@ export default function AdminPage() {
 
       </header>
 
-      {/* CONTENT */}
+      {/* =====================================================
+          CONTENT
+      ===================================================== */}
+
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
 
-        {/* TITLE */}
+        {/* ===================================================
+            TITLE
+        =================================================== */}
+
         <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
 
           <div>
@@ -179,10 +289,14 @@ export default function AdminPage() {
 
         </div>
 
-        {/* STATS */}
+        {/* ===================================================
+            STATS
+        =================================================== */}
+
         <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
 
           {/* MEMBERS */}
+
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
 
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-2xl">
@@ -194,18 +308,17 @@ export default function AdminPage() {
             </p>
 
             <p className="mt-1 text-3xl font-black text-slate-900">
-              {loading
-                ? "—"
-                : stats.members}
+              {loading ? "—" : stats.members}
             </p>
 
             <p className="mt-2 text-xs text-slate-400">
-              ระบบสมาชิกปัจจุบัน
+              จากฐานข้อมูล members
             </p>
 
           </div>
 
           {/* COURSES */}
+
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
 
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-50 text-2xl">
@@ -217,9 +330,7 @@ export default function AdminPage() {
             </p>
 
             <p className="mt-1 text-3xl font-black text-slate-900">
-              {loading
-                ? "—"
-                : stats.courses}
+              {loading ? "—" : stats.courses}
             </p>
 
             <p className="mt-2 text-xs text-slate-400">
@@ -229,6 +340,7 @@ export default function AdminPage() {
           </div>
 
           {/* VIDEOS */}
+
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
 
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 text-2xl">
@@ -240,9 +352,7 @@ export default function AdminPage() {
             </p>
 
             <p className="mt-1 text-3xl font-black text-slate-900">
-              {loading
-                ? "—"
-                : stats.videos}
+              {loading ? "—" : stats.videos}
             </p>
 
             <p className="mt-2 text-xs text-slate-400">
@@ -252,6 +362,7 @@ export default function AdminPage() {
           </div>
 
           {/* QUIZZES */}
+
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
 
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-yellow-50 text-2xl">
@@ -263,16 +374,17 @@ export default function AdminPage() {
             </p>
 
             <p className="mt-1 text-3xl font-black text-slate-900">
-              {stats.quizzes}
+              {loading ? "—" : stats.quizzes}
             </p>
 
-            <p className="mt-2 text-xs text-orange-500">
-              ยังไม่มีตารางในฐานข้อมูล
+            <p className="mt-2 text-xs text-slate-400">
+              จากฐานข้อมูล exams
             </p>
 
           </div>
 
           {/* STANDARDS */}
+
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
 
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50 text-2xl">
@@ -284,9 +396,7 @@ export default function AdminPage() {
             </p>
 
             <p className="mt-1 text-3xl font-black text-slate-900">
-              {loading
-                ? "—"
-                : stats.standards}
+              {loading ? "—" : stats.standards}
             </p>
 
             <p className="mt-2 text-xs text-slate-400">
@@ -297,7 +407,102 @@ export default function AdminPage() {
 
         </section>
 
-        {/* MENU */}
+        {/* ===================================================
+            EXTRA DATABASE SUMMARY
+        =================================================== */}
+
+        <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
+            <div className="flex items-center justify-between">
+
+              <div>
+
+                <p className="text-xs font-semibold text-slate-400">
+                  ไฟล์มาตรฐาน
+                </p>
+
+                <p className="mt-1 text-2xl font-black text-slate-900">
+                  {loading ? "—" : stats.standardFiles}
+                </p>
+
+              </div>
+
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-2xl">
+                📎
+              </div>
+
+            </div>
+
+            <p className="mt-2 text-xs text-slate-400">
+              จาก standard_files
+            </p>
+
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
+            <div className="flex items-center justify-between">
+
+              <div>
+
+                <p className="text-xs font-semibold text-slate-400">
+                  ผลการทำแบบทดสอบ
+                </p>
+
+                <p className="mt-1 text-2xl font-black text-slate-900">
+                  {loading ? "—" : stats.examResults}
+                </p>
+
+              </div>
+
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-50 text-2xl">
+                🏆
+              </div>
+
+            </div>
+
+            <p className="mt-2 text-xs text-slate-400">
+              จาก exam_results
+            </p>
+
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
+            <div className="flex items-center justify-between">
+
+              <div>
+
+                <p className="text-xs font-semibold text-slate-400">
+                  สถานะฐานข้อมูล
+                </p>
+
+                <p className="mt-1 text-2xl font-black text-green-600">
+                  Online
+                </p>
+
+              </div>
+
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-50 text-2xl">
+                🟢
+              </div>
+
+            </div>
+
+            <p className="mt-2 text-xs text-slate-400">
+              Supabase Database
+            </p>
+
+          </div>
+
+        </section>
+
+        {/* ===================================================
+            MENU
+        =================================================== */}
+
         <section className="mt-10">
 
           <div className="mb-6">
@@ -388,7 +593,10 @@ export default function AdminPage() {
 
         </section>
 
-        {/* DATABASE STATUS */}
+        {/* ===================================================
+            DATABASE STATUS
+        =================================================== */}
+
         <section className="mt-10">
 
           <div className="mb-6">
@@ -430,7 +638,10 @@ export default function AdminPage() {
 
         </section>
 
-        {/* DATABASE TABLES */}
+        {/* ===================================================
+            DATABASE TABLES
+        =================================================== */}
+
         <section className="mt-10 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
 
           <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
@@ -456,6 +667,12 @@ export default function AdminPage() {
           <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
 
             <DatabaseTable
+              name="members"
+              label="👥 สมาชิก"
+              count={stats.members}
+            />
+
+            <DatabaseTable
               name="courses"
               label="📚 หลักสูตร"
               count={stats.courses}
@@ -468,21 +685,15 @@ export default function AdminPage() {
             />
 
             <DatabaseTable
+              name="exams"
+              label="📝 แบบทดสอบ"
+              count={stats.quizzes}
+            />
+
+            <DatabaseTable
               name="department_standards"
               label="📋 มาตรฐาน"
               count={stats.standards}
-            />
-
-            <DatabaseTable
-              name="standard_files"
-              label="📎 ไฟล์มาตรฐาน"
-              count={0}
-            />
-
-            <DatabaseTable
-              name="standard_courses"
-              label="🔗 ความสัมพันธ์"
-              count={0}
             />
 
           </div>
@@ -491,7 +702,10 @@ export default function AdminPage() {
 
       </div>
 
-      {/* FOOTER */}
+      {/* =====================================================
+          FOOTER
+      ===================================================== */}
+
       <footer className="mt-10 border-t border-slate-200 bg-white">
 
         <div className="mx-auto max-w-7xl px-4 py-8 text-center sm:px-6">
@@ -511,7 +725,6 @@ export default function AdminPage() {
     </main>
   );
 }
-
 
 /* =========================================================
    ADMIN CARD
@@ -557,7 +770,6 @@ function AdminCard({
     </Link>
   );
 }
-
 
 /* =========================================================
    STATUS CARD
@@ -618,7 +830,6 @@ function StatusCard({
     </div>
   );
 }
-
 
 /* =========================================================
    DATABASE TABLE
