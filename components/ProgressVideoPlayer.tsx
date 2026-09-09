@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -38,14 +39,22 @@ type Props = {
   durationSeconds?: number | null;
 };
 
+type SavedMember = {
+  id?: string;
+  name?: string;
+  full_name?: string;
+  member_name?: string;
+};
+
 export default function ProgressVideoPlayer({
   videoId,
   cloudflareVideoId,
   title,
   durationSeconds,
 }: Props) {
-  const iframeRef =
-    useRef<HTMLIFrameElement | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(
+    null
+  );
 
   const playerRef =
     useRef<CloudflarePlayer | null>(null);
@@ -58,20 +67,424 @@ export default function ProgressVideoPlayer({
   const memberIdRef =
     useRef<string | null>(null);
 
-  const [progress, setProgress] =
-    useState(0);
+  const savedTimeRef = useRef(0);
 
-  const [currentTime, setCurrentTime] =
-    useState(0);
+  const loadedProgressRef = useRef(false);
 
-  const [duration, setDuration] =
-    useState(durationSeconds || 0);
-
-  const [saving, setSaving] =
+  const [progress, setProgress] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(
+    durationSeconds || 0
+  );
+  const [saving, setSaving] = useState(false);
+  const [completed, setCompleted] = useState(false);
+  const [memberReady, setMemberReady] =
+    useState(false);
+  const [progressLoaded, setProgressLoaded] =
     useState(false);
 
-  const [completed, setCompleted] =
-    useState(false);
+  /*
+  |--------------------------------------------------------------------------
+  | หา Member ID
+  |--------------------------------------------------------------------------
+  */
+
+  const getMemberId = useCallback(async () => {
+    try {
+      const idKeys = [
+        "warithep_learning_member_id",
+        "warithep_member_id",
+        "member_id",
+        "current_member_id",
+      ];
+
+      for (const key of idKeys) {
+        const storedId =
+          localStorage.getItem(key);
+
+        if (!storedId) continue;
+
+        const { data, error } = await supabase
+          .from("members")
+          .select("id")
+          .eq("id", storedId)
+          .maybeSingle();
+
+        if (!error && data?.id) {
+          memberIdRef.current = data.id;
+          setMemberReady(true);
+
+          localStorage.setItem(
+            "warithep_learning_member_id",
+            data.id
+          );
+
+          return data.id;
+        }
+      }
+
+      const memberKeys = [
+        "warithep_learning_member",
+        "warithep_learning_user",
+        "current_member",
+        "currentMember",
+        "member",
+        "user",
+      ];
+
+      for (const key of memberKeys) {
+        const saved =
+          localStorage.getItem(key);
+
+        if (!saved) continue;
+
+        let parsed: unknown = null;
+
+        try {
+          parsed = JSON.parse(saved);
+        } catch {
+          parsed = null;
+        }
+
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          !Array.isArray(parsed)
+        ) {
+          const localMember =
+            parsed as SavedMember;
+
+          if (localMember.id) {
+            const { data, error } =
+              await supabase
+                .from("members")
+                .select("id")
+                .eq("id", localMember.id)
+                .maybeSingle();
+
+            if (!error && data?.id) {
+              memberIdRef.current = data.id;
+              setMemberReady(true);
+
+              localStorage.setItem(
+                "warithep_learning_member_id",
+                data.id
+              );
+
+              return data.id;
+            }
+          }
+
+          const name =
+            localMember.name ||
+            localMember.full_name ||
+            localMember.member_name ||
+            "";
+
+          if (name.trim()) {
+            const { data, error } =
+              await supabase
+                .from("members")
+                .select("id")
+                .eq("name", name.trim())
+                .maybeSingle();
+
+            if (!error && data?.id) {
+              memberIdRef.current = data.id;
+              setMemberReady(true);
+
+              localStorage.setItem(
+                "warithep_learning_member_id",
+                data.id
+              );
+
+              localStorage.setItem(
+                "warithep_learning_member",
+                JSON.stringify({
+                  ...localMember,
+                  id: data.id,
+                })
+              );
+
+              return data.id;
+            }
+          }
+        }
+
+        if (typeof parsed === "string") {
+          const name = parsed.trim();
+
+          if (name) {
+            const { data, error } =
+              await supabase
+                .from("members")
+                .select("id")
+                .eq("name", name)
+                .maybeSingle();
+
+            if (!error && data?.id) {
+              memberIdRef.current = data.id;
+              setMemberReady(true);
+
+              localStorage.setItem(
+                "warithep_learning_member_id",
+                data.id
+              );
+
+              return data.id;
+            }
+          }
+        }
+      }
+
+      const loginNameKeys = [
+        "warithep_learning_login_name",
+        "warithep_login_name",
+        "login_name",
+      ];
+
+      for (const key of loginNameKeys) {
+        const name =
+          localStorage.getItem(key);
+
+        if (!name?.trim()) continue;
+
+        const { data, error } =
+          await supabase
+            .from("members")
+            .select("id")
+            .eq("name", name.trim())
+            .maybeSingle();
+
+        if (!error && data?.id) {
+          memberIdRef.current = data.id;
+          setMemberReady(true);
+
+          localStorage.setItem(
+            "warithep_learning_member_id",
+            data.id
+          );
+
+          return data.id;
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error(
+        "Get member ID error:",
+        error
+      );
+
+      return null;
+    }
+  }, []);
+
+  /*
+  |--------------------------------------------------------------------------
+  | โหลด Progress เดิม
+  |--------------------------------------------------------------------------
+  */
+
+  const loadProgress = useCallback(
+    async (memberId: string) => {
+      try {
+        const { data, error } =
+          await supabase
+            .from("video_progress")
+            .select(
+              "watched_seconds, duration_seconds, progress_percent, completed"
+            )
+            .eq("member_id", memberId)
+            .eq("video_id", videoId)
+            .maybeSingle();
+
+        if (error) {
+          console.error(
+            "Load video progress error:",
+            error
+          );
+          return;
+        }
+
+        if (data) {
+          const savedSeconds = Number(
+            data.watched_seconds || 0
+          );
+
+          const savedDuration = Number(
+            data.duration_seconds || 0
+          );
+
+          const savedPercent = Number(
+            data.progress_percent || 0
+          );
+
+          savedTimeRef.current =
+            savedSeconds;
+
+          setCurrentTime(savedSeconds);
+          setProgress(savedPercent);
+
+          if (savedDuration > 0) {
+            setDuration(savedDuration);
+          }
+
+          setCompleted(
+            Boolean(data.completed)
+          );
+
+          console.log(
+            "Loaded video progress:",
+            {
+              memberId,
+              videoId,
+              savedSeconds,
+              savedDuration,
+              savedPercent,
+            }
+          );
+        } else {
+          savedTimeRef.current = 0;
+        }
+
+        loadedProgressRef.current = true;
+        setProgressLoaded(true);
+      } catch (error) {
+        console.error(
+          "Load progress error:",
+          error
+        );
+      }
+    },
+    [videoId]
+  );
+
+  /*
+  |--------------------------------------------------------------------------
+  | หา Member แล้วโหลด Progress
+  |--------------------------------------------------------------------------
+  */
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function initializeMember() {
+      const memberId =
+        await getMemberId();
+
+      if (
+        cancelled ||
+        !memberId
+      ) {
+        setProgressLoaded(true);
+        return;
+      }
+
+      await loadProgress(memberId);
+    }
+
+    void initializeMember();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [getMemberId, loadProgress]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | บันทึก Progress
+  |--------------------------------------------------------------------------
+  */
+
+  const saveProgress = useCallback(
+    async (force = false) => {
+      const player =
+        playerRef.current;
+
+      const memberId =
+        memberIdRef.current;
+
+      if (!player || !memberId) {
+        return;
+      }
+
+      const current = Math.floor(
+        Number(player.currentTime || 0)
+      );
+
+      const total = Math.floor(
+        Number(
+          player.duration ||
+            duration ||
+            durationSeconds ||
+            0
+        )
+      );
+
+      if (!total || total <= 0) {
+        return;
+      }
+
+      const percent = Math.min(
+        100,
+        Math.round(
+          (current / total) * 100
+        )
+      );
+
+      const isCompleted =
+        player.ended ||
+        percent >= 95;
+
+      setCurrentTime(current);
+      setDuration(total);
+      setProgress(percent);
+      setCompleted(isCompleted);
+
+      if (!force && current <= 0) {
+        return;
+      }
+
+      setSaving(true);
+
+      const now =
+        new Date().toISOString();
+
+      const { error } =
+        await supabase
+          .from("video_progress")
+          .upsert(
+            {
+              member_id: memberId,
+              video_id: videoId,
+              watched_seconds: current,
+              duration_seconds: total,
+              progress_percent: percent,
+              completed: isCompleted,
+              last_watched_at: now,
+              updated_at: now,
+            },
+            {
+              onConflict:
+                "member_id,video_id",
+            }
+          );
+
+      if (error) {
+        console.error(
+          "Save video progress error:",
+          error
+        );
+      } else {
+        savedTimeRef.current =
+          current;
+      }
+
+      setSaving(false);
+    },
+    [duration, durationSeconds, videoId]
+  );
 
   /*
   |--------------------------------------------------------------------------
@@ -80,9 +493,12 @@ export default function ProgressVideoPlayer({
   */
 
   useEffect(() => {
+    const scriptSrc =
+      "https://embed.cloudflarestream.com/embed/sdk.latest.js";
+
     const existing =
       document.querySelector(
-        'script[src="https://embed.cloudflarestream.com/embed/sdk.latest.js"]'
+        `script[src="${scriptSrc}"]`
       );
 
     if (existing) {
@@ -92,240 +508,11 @@ export default function ProgressVideoPlayer({
     const script =
       document.createElement("script");
 
-    script.src =
-      "https://embed.cloudflarestream.com/embed/sdk.latest.js";
-
+    script.src = scriptSrc;
     script.async = true;
 
     document.body.appendChild(script);
   }, []);
-
-  /*
-  |--------------------------------------------------------------------------
-  | หา Member
-  |--------------------------------------------------------------------------
-  */
-
-  useEffect(() => {
-    async function loadMember() {
-      try {
-        const saved =
-          localStorage.getItem(
-            "warithep_learning_member"
-          );
-
-        if (!saved) {
-          return;
-        }
-
-        const localMember =
-          JSON.parse(saved);
-
-        if (localMember?.id) {
-          memberIdRef.current =
-            localMember.id;
-
-          return;
-        }
-
-        if (!localMember?.name) {
-          return;
-        }
-
-        const { data, error } =
-          await supabase
-            .from("members")
-            .select("id")
-            .eq(
-              "name",
-              localMember.name.trim()
-            )
-            .maybeSingle();
-
-        if (!error && data?.id) {
-          memberIdRef.current =
-            data.id;
-
-          localStorage.setItem(
-            "warithep_learning_member",
-            JSON.stringify({
-              ...localMember,
-              id: data.id,
-            })
-          );
-        }
-      } catch (error) {
-        console.error(
-          "Load member error:",
-          error
-        );
-      }
-    }
-
-    loadMember();
-  }, []);
-
-  /*
-  |--------------------------------------------------------------------------
-  | โหลดความคืบหน้าเดิม
-  |--------------------------------------------------------------------------
-  */
-
-  useEffect(() => {
-    async function loadProgress() {
-      if (!memberIdRef.current) {
-        return;
-      }
-
-      const { data, error } =
-        await supabase
-          .from("video_progress")
-          .select(
-            "watched_seconds, duration_seconds, progress_percent, completed"
-          )
-          .eq(
-            "member_id",
-            memberIdRef.current
-          )
-          .eq("video_id", videoId)
-          .maybeSingle();
-
-      if (error) {
-        console.error(
-          "Load video progress error:",
-          error
-        );
-        return;
-      }
-
-      if (data) {
-        const savedDuration =
-          Number(
-            data.duration_seconds || 0
-          );
-
-        const savedSeconds =
-          Number(
-            data.watched_seconds || 0
-          );
-
-        const savedProgress =
-          Number(
-            data.progress_percent || 0
-          );
-
-        if (savedDuration > 0) {
-          setDuration(savedDuration);
-        }
-
-        setCurrentTime(savedSeconds);
-        setProgress(savedProgress);
-        setCompleted(
-          Boolean(data.completed)
-        );
-      }
-    }
-
-    const timer = setTimeout(
-      loadProgress,
-      500
-    );
-
-    return () =>
-      clearTimeout(timer);
-  }, [videoId]);
-
-  /*
-  |--------------------------------------------------------------------------
-  | บันทึกความคืบหน้า
-  |--------------------------------------------------------------------------
-  */
-
-  async function saveProgress(
-    force = false
-  ) {
-    const player =
-      playerRef.current;
-
-    const memberId =
-      memberIdRef.current;
-
-    if (!player || !memberId) {
-      return;
-    }
-
-    const current =
-      Math.floor(
-        Number(player.currentTime || 0)
-      );
-
-    const total =
-      Math.floor(
-        Number(
-          player.duration ||
-            duration ||
-            durationSeconds ||
-            0
-        )
-      );
-
-    if (!total || total <= 0) {
-      return;
-    }
-
-    const percent = Math.min(
-      100,
-      Math.round(
-        (current / total) * 100
-      )
-    );
-
-    const isCompleted =
-      player.ended ||
-      percent >= 95;
-
-    setCurrentTime(current);
-    setDuration(total);
-    setProgress(percent);
-    setCompleted(isCompleted);
-
-    if (!force && current <= 0) {
-      return;
-    }
-
-    setSaving(true);
-
-    const { error } =
-      await supabase
-        .from("video_progress")
-        .upsert(
-          {
-            member_id: memberId,
-            video_id: videoId,
-            watched_seconds: current,
-            duration_seconds: total,
-            progress_percent: percent,
-            completed: isCompleted,
-            last_watched_at:
-              new Date().toISOString(),
-            updated_at:
-              new Date().toISOString(),
-          },
-          {
-            onConflict:
-              "member_id,video_id",
-          }
-        );
-
-    if (error) {
-      console.error(
-        "Save video progress error:",
-        error
-      );
-    }
-
-    setSaving(false);
-  }
 
   /*
   |--------------------------------------------------------------------------
@@ -342,16 +529,17 @@ export default function ProgressVideoPlayer({
       }
 
       /*
-      | รอ SDK โหลด
+      | รอ SDK
       */
 
-      for (let i = 0; i < 30; i++) {
+      for (let i = 0; i < 40; i++) {
         if (window.Stream) {
           break;
         }
 
-        await new Promise((resolve) =>
-          setTimeout(resolve, 300)
+        await new Promise(
+          (resolve) =>
+            setTimeout(resolve, 250)
         );
       }
 
@@ -371,20 +559,51 @@ export default function ProgressVideoPlayer({
       playerRef.current = player;
 
       /*
-      | โหลดเวลาเดิม
+      | Metadata
       */
 
       const handleLoaded = () => {
-        const total =
-          Number(player.duration || 0);
+        const total = Number(
+          player.duration || 0
+        );
 
         if (total > 0) {
-          setDuration(total);
+          setDuration(
+            Math.floor(total)
+          );
+        }
+
+        /*
+        | เมื่อ Player พร้อมแล้ว
+        | ให้เลื่อนไปยังจุดเดิม
+        */
+
+        if (
+          loadedProgressRef.current &&
+          savedTimeRef.current > 5 &&
+          savedTimeRef.current <
+            total - 5
+        ) {
+          try {
+            player.currentTime =
+              savedTimeRef.current;
+
+            setCurrentTime(
+              Math.floor(
+                savedTimeRef.current
+              )
+            );
+          } catch (error) {
+            console.error(
+              "Resume position error:",
+              error
+            );
+          }
         }
       };
 
       /*
-      | อัปเดตหน้าจอ
+      | Time Update
       */
 
       const handleTimeUpdate = () => {
@@ -410,24 +629,25 @@ export default function ProgressVideoPlayer({
             Math.floor(total)
           );
 
-          setProgress(
+          const percent =
             Math.min(
               100,
               Math.round(
                 (current / total) *
                   100
               )
-            )
-          );
+            );
+
+          setProgress(percent);
         }
       };
 
       /*
-      | บันทึกเมื่อดูจบ
+      | จบวิดีโอ
       */
 
       const handleEnded = () => {
-        saveProgress(true);
+        void saveProgress(true);
       };
 
       player.addEventListener(
@@ -456,11 +676,11 @@ export default function ProgressVideoPlayer({
 
       saveTimerRef.current =
         setInterval(() => {
-          saveProgress();
+          void saveProgress();
         }, 10000);
     }
 
-    connectPlayer();
+    void connectPlayer();
 
     return () => {
       cancelled = true;
@@ -469,9 +689,18 @@ export default function ProgressVideoPlayer({
         clearInterval(
           saveTimerRef.current
         );
+
+        saveTimerRef.current = null;
       }
 
-      saveProgress(true);
+      /*
+      | ก่อนออกจากหน้า
+      | บันทึกตำแหน่งล่าสุด
+      */
+
+      void saveProgress(true);
+
+      playerRef.current = null;
     };
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -479,7 +708,7 @@ export default function ProgressVideoPlayer({
 
   /*
   |--------------------------------------------------------------------------
-  | เริ่มดูต่อจากจุดเดิม
+  | เล่นต่อจากจุดเดิม
   |--------------------------------------------------------------------------
   */
 
@@ -492,7 +721,7 @@ export default function ProgressVideoPlayer({
     }
 
     if (
-      currentTime > 0 &&
+      currentTime > 5 &&
       duration > 0 &&
       currentTime < duration - 5
     ) {
@@ -502,13 +731,25 @@ export default function ProgressVideoPlayer({
 
         await player.play();
       } catch {
-        // ผู้ใช้ต้องกด Play เองบนมือถือ
+        /*
+        | มือถือบางเครื่อง
+        | ต้องกด Play จากตัว Player
+        */
       }
     }
   }
 
+  /*
+  |--------------------------------------------------------------------------
+  | Format เวลา
+  |--------------------------------------------------------------------------
+  */
+
   function formatTime(seconds: number) {
-    if (!seconds || seconds < 0) {
+    if (
+      !seconds ||
+      seconds < 0
+    ) {
       return "00:00";
     }
 
@@ -516,8 +757,9 @@ export default function ProgressVideoPlayer({
       seconds / 60
     );
 
-    const secs =
-      Math.floor(seconds % 60);
+    const secs = Math.floor(
+      seconds % 60
+    );
 
     return `${String(mins).padStart(
       2,
@@ -530,6 +772,12 @@ export default function ProgressVideoPlayer({
 
   const iframeUrl =
     `https://customer-xv4jsdza59p3njyz.cloudflarestream.com/${cloudflareVideoId}/iframe`;
+
+  /*
+  |--------------------------------------------------------------------------
+  | UI
+  |--------------------------------------------------------------------------
+  */
 
   return (
     <div className="space-y-5">
@@ -589,12 +837,16 @@ export default function ProgressVideoPlayer({
 
         </div>
 
-        {/* BAR */}
+        {/* PROGRESS BAR */}
 
         <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
 
           <div
-            className="h-full rounded-full bg-blue-600 transition-all duration-300"
+            className={`h-full rounded-full transition-all duration-300 ${
+              completed
+                ? "bg-green-500"
+                : "bg-blue-600"
+            }`}
             style={{
               width: `${progress}%`,
             }}
@@ -602,16 +854,22 @@ export default function ProgressVideoPlayer({
 
         </div>
 
-        <div className="mt-3 flex items-center justify-between">
+        <div className="mt-3 flex items-center justify-between gap-3">
 
           <p className="text-xs font-medium text-slate-400">
-            {completed
-              ? "คุณดูวิดีโอนี้จบแล้ว"
-              : `ดูไปแล้ว ${progress}%`}
+
+            {!memberReady
+              ? "กำลังตรวจสอบสมาชิก..."
+              : !progressLoaded
+                ? "กำลังโหลดความคืบหน้า..."
+                : completed
+                  ? "คุณดูวิดีโอนี้จบแล้ว"
+                  : `ดูไปแล้ว ${progress}%`}
+
           </p>
 
           {saving && (
-            <p className="text-xs font-bold text-blue-500">
+            <p className="shrink-0 text-xs font-bold text-blue-500">
               กำลังบันทึก...
             </p>
           )}
