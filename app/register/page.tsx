@@ -97,13 +97,21 @@ export default function RegisterPage() {
   const [branch, setBranch] = useState("");
   const [department, setDepartment] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] =
+    useState("");
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPassword, setShowPassword] =
+    useState(false);
+
+  const [showConfirmPassword, setShowConfirmPassword] =
+    useState(false);
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // =========================================================
+  // สมัครสมาชิก
+  // =========================================================
 
   async function handleSubmit(
     event: React.FormEvent<HTMLFormElement>
@@ -113,6 +121,10 @@ export default function RegisterPage() {
     setError("");
 
     const cleanName = name.trim();
+
+    // =====================================================
+    // ตรวจข้อมูล
+    // =====================================================
 
     if (!cleanName) {
       setError("กรุณากรอกชื่อ-นามสกุล");
@@ -140,12 +152,16 @@ export default function RegisterPage() {
     }
 
     if (password.length < 6) {
-      setError("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
+      setError(
+        "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร"
+      );
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("รหัสผ่านทั้งสองช่องไม่ตรงกัน");
+      setError(
+        "รหัสผ่านทั้งสองช่องไม่ตรงกัน"
+      );
       return;
     }
 
@@ -154,82 +170,124 @@ export default function RegisterPage() {
     try {
       setLoading(true);
 
-      // ==========================================
-      // ตรวจสอบสมาชิกซ้ำ
-      // ใช้ชื่อ + สาขา เป็นตัวตรวจสอบ
-      // ==========================================
+      // =====================================================
+      // ส่งข้อมูลไป Server
+      //
+      // Server จะเป็นผู้:
+      // 1. ตรวจสมาชิกซ้ำ
+      // 2. สร้าง members
+      // 3. สร้าง Supabase Auth
+      // 4. เชื่อม auth_user_id
+      // =====================================================
 
-      const { data: existingMember, error: checkError } =
-        await supabase
-          .from("members")
-          .select("id, name, branch")
-          .eq("name", cleanName)
-          .eq("branch", branch)
-          .maybeSingle();
-
-      if (checkError) {
-        console.error("CHECK MEMBER ERROR:", checkError);
-
-        setError(
-          "ไม่สามารถตรวจสอบข้อมูลสมาชิกได้\n" +
-            checkError.message
-        );
-
-        return;
-      }
-
-      if (existingMember) {
-        setError(
-          "สมาชิกนี้มีอยู่ในระบบแล้ว\n\n" +
-            "ชื่อ: " +
-            existingMember.name +
-            "\n" +
-            "สาขา: " +
-            existingMember.branch
-        );
-
-        return;
-      }
-
-      // ==========================================
-      // บันทึกสมาชิกลง Supabase
-      // ==========================================
-
-      const { data: newMember, error: insertError } =
-        await supabase
-          .from("members")
-          .insert({
+      const response = await fetch(
+        "/api/register",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
             name: cleanName,
             position,
             branch,
             department,
             password,
-          })
-          .select(
-            "id, name, position, branch, department"
-          )
-          .single();
+          }),
+        }
+      );
 
-      if (insertError) {
-        console.error("INSERT MEMBER ERROR:", insertError);
+      const result = await response.json();
 
+      // =====================================================
+      // ตรวจผลจาก Server
+      // =====================================================
+
+      if (!response.ok || !result.success) {
         setError(
-          "ไม่สามารถบันทึกสมาชิกได้\n\n" +
-            insertError.message
+          result.error ||
+            "ไม่สามารถสมัครสมาชิกได้"
         );
 
         return;
       }
 
+      const newMember = result.member;
+
       if (!newMember) {
-        setError("ไม่พบข้อมูลสมาชิกหลังจากบันทึก");
+        setError(
+          "สมัครสมาชิกสำเร็จ แต่ไม่พบข้อมูลสมาชิก"
+        );
+
         return;
       }
 
-      // ==========================================
-      // เก็บข้อมูลสมาชิกสำหรับ Session หน้าเว็บ
-      // ไม่เก็บ password ลง localStorage
-      // ==========================================
+      if (!result.auth_email) {
+        setError(
+          "สมัครสมาชิกสำเร็จ แต่ไม่พบข้อมูลบัญชี Auth"
+        );
+
+        return;
+      }
+
+      // =====================================================
+      // Login อัตโนมัติด้วย Supabase Auth
+      // =====================================================
+
+      const {
+        data: authData,
+        error: authError,
+      } =
+        await supabase.auth.signInWithPassword({
+          email: result.auth_email,
+          password,
+        });
+
+      if (authError || !authData.user) {
+        console.error(
+          "AUTO LOGIN ERROR:",
+          authError
+        );
+
+        setError(
+          "สมัครสมาชิกสำเร็จแล้ว แต่ไม่สามารถเข้าสู่ระบบอัตโนมัติได้ กรุณาไปที่หน้าเข้าสู่ระบบ"
+        );
+
+        return;
+      }
+
+      // =====================================================
+      // ตรวจว่า Auth User ตรงกับ Member
+      // =====================================================
+
+      if (
+        authData.user.id !==
+        newMember.auth_user_id
+      ) {
+        console.error(
+          "AUTH USER MISMATCH",
+          {
+            authUserId:
+              authData.user.id,
+            memberAuthUserId:
+              newMember.auth_user_id,
+          }
+        );
+
+        await supabase.auth.signOut();
+
+        setError(
+          "ข้อมูลบัญชีไม่ตรงกัน กรุณาติดต่อผู้ดูแลระบบ"
+        );
+
+        return;
+      }
+
+      // =====================================================
+      // เก็บข้อมูลสมาชิกสำหรับหน้าเว็บ
+      //
+      // ไม่มี password
+      // =====================================================
 
       const memberSession = {
         id: newMember.id,
@@ -237,6 +295,8 @@ export default function RegisterPage() {
         position: newMember.position,
         branch: newMember.branch,
         department: newMember.department,
+        auth_user_id:
+          newMember.auth_user_id,
       };
 
       localStorage.setItem(
@@ -244,16 +304,31 @@ export default function RegisterPage() {
         JSON.stringify(memberSession)
       );
 
-      // ==========================================
-      // ไป Dashboard
-      // ==========================================
+      localStorage.setItem(
+        "warithep_learning_member_id",
+        newMember.id
+      );
+
+      localStorage.setItem(
+        "warithep_learning_login_name",
+        newMember.name
+      );
+
+      // =====================================================
+      // เข้า Dashboard
+      // =====================================================
 
       router.push("/dashboard");
     } catch (err) {
-      console.error("REGISTER ERROR:", err);
+      console.error(
+        "REGISTER ERROR:",
+        err
+      );
 
       setError(
-        "เกิดข้อผิดพลาดในการสมัครสมาชิก กรุณาลองใหม่อีกครั้ง"
+        err instanceof Error
+          ? err.message
+          : "เกิดข้อผิดพลาดในการสมัครสมาชิก กรุณาลองใหม่อีกครั้ง"
       );
     } finally {
       setLoading(false);
@@ -263,12 +338,17 @@ export default function RegisterPage() {
   return (
     <main className="min-h-screen bg-slate-50">
 
+      {/* ===================================================== */}
       {/* HEADER */}
+      {/* ===================================================== */}
+
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
 
-          <Link href="/" className="flex items-center gap-3">
-
+          <Link
+            href="/"
+            className="flex items-center gap-3"
+          >
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-2xl">
               🎓
             </div>
@@ -282,12 +362,11 @@ export default function RegisterPage() {
                 LEARNING
               </div>
             </div>
-
           </Link>
 
           <Link
             href="/login"
-            className="rounded-xl px-4 py-2 font-bold text-slate-600 hover:bg-slate-100"
+            className="rounded-xl px-4 py-2 font-bold text-slate-600 transition hover:bg-slate-100"
           >
             เข้าสู่ระบบ
           </Link>
@@ -295,12 +374,18 @@ export default function RegisterPage() {
         </div>
       </header>
 
+      {/* ===================================================== */}
       {/* CONTENT */}
+      {/* ===================================================== */}
+
       <div className="flex min-h-[calc(100vh-73px)] items-center justify-center px-5 py-10">
 
         <div className="w-full max-w-2xl">
 
+          {/* ================================================= */}
           {/* TITLE */}
+          {/* ================================================= */}
+
           <div className="mb-8 text-center">
 
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-blue-600 text-4xl shadow-xl shadow-blue-200">
@@ -321,7 +406,10 @@ export default function RegisterPage() {
 
           </div>
 
+          {/* ================================================= */}
           {/* FORM CARD */}
+          {/* ================================================= */}
+
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/50 md:p-8">
 
             <form
@@ -329,114 +417,155 @@ export default function RegisterPage() {
               className="space-y-5"
             >
 
+              {/* ================================================= */}
               {/* NAME */}
+              {/* ================================================= */}
+
               <div>
 
                 <label className="mb-2 block text-sm font-bold text-slate-700">
                   ชื่อ-นามสกุล
-                  <span className="ml-1 text-red-500">*</span>
+                  <span className="ml-1 text-red-500">
+                    *
+                  </span>
                 </label>
 
                 <input
                   type="text"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) =>
+                    setName(e.target.value)
+                  }
                   placeholder="กรอกชื่อและนามสกุล"
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3.5 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+                  autoComplete="name"
+                  disabled={loading}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-100"
                 />
 
               </div>
 
+              {/* ================================================= */}
               {/* POSITION */}
+              {/* ================================================= */}
+
               <div>
 
                 <label className="mb-2 block text-sm font-bold text-slate-700">
                   ตำแหน่ง
-                  <span className="ml-1 text-red-500">*</span>
+                  <span className="ml-1 text-red-500">
+                    *
+                  </span>
                 </label>
 
                 <select
                   value={position}
-                  onChange={(e) => setPosition(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+                  onChange={(e) =>
+                    setPosition(e.target.value)
+                  }
+                  disabled={loading}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-100"
                 >
-
                   <option value="">
                     เลือกตำแหน่ง
                   </option>
 
                   {positions.map((item) => (
-                    <option key={item} value={item}>
+                    <option
+                      key={item}
+                      value={item}
+                    >
                       {item}
                     </option>
                   ))}
-
                 </select>
 
               </div>
 
+              {/* ================================================= */}
               {/* BRANCH */}
+              {/* ================================================= */}
+
               <div>
 
                 <label className="mb-2 block text-sm font-bold text-slate-700">
                   สาขา
-                  <span className="ml-1 text-red-500">*</span>
+                  <span className="ml-1 text-red-500">
+                    *
+                  </span>
                 </label>
 
                 <select
                   value={branch}
-                  onChange={(e) => setBranch(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+                  onChange={(e) =>
+                    setBranch(e.target.value)
+                  }
+                  disabled={loading}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-100"
                 >
-
                   <option value="">
                     เลือกสาขา
                   </option>
 
                   {branches.map((item) => (
-                    <option key={item} value={item}>
+                    <option
+                      key={item}
+                      value={item}
+                    >
                       {item}
                     </option>
                   ))}
-
                 </select>
 
               </div>
 
+              {/* ================================================= */}
               {/* DEPARTMENT */}
+              {/* ================================================= */}
+
               <div>
 
                 <label className="mb-2 block text-sm font-bold text-slate-700">
                   ฝ่าย
-                  <span className="ml-1 text-red-500">*</span>
+                  <span className="ml-1 text-red-500">
+                    *
+                  </span>
                 </label>
 
                 <select
                   value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+                  onChange={(e) =>
+                    setDepartment(e.target.value)
+                  }
+                  disabled={loading}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-100"
                 >
-
                   <option value="">
                     เลือกฝ่าย
                   </option>
 
                   {departments.map((item) => (
-                    <option key={item} value={item}>
+                    <option
+                      key={item}
+                      value={item}
+                    >
                       {item}
                     </option>
                   ))}
-
                 </select>
 
               </div>
 
+              {/* ================================================= */}
               {/* PASSWORD */}
+              {/* ================================================= */}
+
               <div>
 
                 <label className="mb-2 block text-sm font-bold text-slate-700">
                   รหัสผ่าน
-                  <span className="ml-1 text-red-500">*</span>
+                  <span className="ml-1 text-red-500">
+                    *
+                  </span>
                 </label>
 
                 <div className="relative">
@@ -449,32 +578,51 @@ export default function RegisterPage() {
                     }
                     value={password}
                     onChange={(e) =>
-                      setPassword(e.target.value)
+                      setPassword(
+                        e.target.value
+                      )
                     }
                     placeholder="อย่างน้อย 6 ตัวอักษร"
-                    className="w-full rounded-2xl border border-slate-200 px-4 py-3.5 pr-14 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+                    autoComplete="new-password"
+                    disabled={loading}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 pr-14 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-100"
                   />
 
                   <button
                     type="button"
                     onClick={() =>
-                      setShowPassword(!showPassword)
+                      setShowPassword(
+                        !showPassword
+                      )
                     }
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-lg"
+                    disabled={loading}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-lg disabled:opacity-50"
+                    aria-label={
+                      showPassword
+                        ? "ซ่อนรหัสผ่าน"
+                        : "แสดงรหัสผ่าน"
+                    }
                   >
-                    {showPassword ? "🙈" : "👁️"}
+                    {showPassword
+                      ? "🙈"
+                      : "👁️"}
                   </button>
 
                 </div>
 
               </div>
 
-              {/* CONFIRM */}
+              {/* ================================================= */}
+              {/* CONFIRM PASSWORD */}
+              {/* ================================================= */}
+
               <div>
 
                 <label className="mb-2 block text-sm font-bold text-slate-700">
                   ยืนยันรหัสผ่าน
-                  <span className="ml-1 text-red-500">*</span>
+                  <span className="ml-1 text-red-500">
+                    *
+                  </span>
                 </label>
 
                 <div className="relative">
@@ -487,10 +635,14 @@ export default function RegisterPage() {
                     }
                     value={confirmPassword}
                     onChange={(e) =>
-                      setConfirmPassword(e.target.value)
+                      setConfirmPassword(
+                        e.target.value
+                      )
                     }
                     placeholder="กรอกรหัสผ่านอีกครั้ง"
-                    className="w-full rounded-2xl border border-slate-200 px-4 py-3.5 pr-14 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+                    autoComplete="new-password"
+                    disabled={loading}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 pr-14 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-100"
                   />
 
                   <button
@@ -500,7 +652,13 @@ export default function RegisterPage() {
                         !showConfirmPassword
                       )
                     }
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-lg"
+                    disabled={loading}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-lg disabled:opacity-50"
+                    aria-label={
+                      showConfirmPassword
+                        ? "ซ่อนรหัสผ่าน"
+                        : "แสดงรหัสผ่าน"
+                    }
                   >
                     {showConfirmPassword
                       ? "🙈"
@@ -511,27 +669,36 @@ export default function RegisterPage() {
 
               </div>
 
+              {/* ================================================= */}
               {/* ERROR */}
+              {/* ================================================= */}
+
               {error && (
-                <div className="whitespace-pre-line rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
+                <div className="whitespace-pre-line rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold leading-6 text-red-600">
                   ⚠️ {error}
                 </div>
               )}
 
+              {/* ================================================= */}
               {/* SUBMIT */}
+              {/* ================================================= */}
+
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-2xl bg-blue-600 px-5 py-4 font-black text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-2xl bg-blue-600 px-5 py-4 font-black text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading
-                  ? "กำลังบันทึกข้อมูล..."
+                  ? "กำลังสร้างบัญชี..."
                   : "สมัครสมาชิก →"}
               </button>
 
             </form>
 
+            {/* ================================================= */}
             {/* LOGIN */}
+            {/* ================================================= */}
+
             <div className="mt-7 border-t border-slate-100 pt-6 text-center">
 
               <p className="text-sm text-slate-500">
@@ -540,7 +707,7 @@ export default function RegisterPage() {
 
               <Link
                 href="/login"
-                className="mt-2 inline-block font-black text-blue-600 hover:text-blue-700"
+                className="mt-2 inline-block font-black text-blue-600 transition hover:text-blue-700"
               >
                 เข้าสู่ระบบ
               </Link>
@@ -548,6 +715,10 @@ export default function RegisterPage() {
             </div>
 
           </div>
+
+          {/* ================================================= */}
+          {/* FOOTER */}
+          {/* ================================================= */}
 
           <p className="mt-6 text-center text-xs text-slate-400">
             ข้อมูลสมาชิกจะถูกบันทึกเข้าสู่ระบบ วารีเทพ Learning

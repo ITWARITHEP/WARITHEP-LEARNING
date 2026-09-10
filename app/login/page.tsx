@@ -7,92 +7,203 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
-const REMEMBER_KEY = "warithep_learning_remember";
-const LOGIN_NAME_KEY = "warithep_learning_login_name";
-const LOGIN_PASSWORD_KEY =
-  "warithep_learning_login_password";
+const REMEMBER_KEY =
+  "warithep_learning_remember";
+
+const LOGIN_NAME_KEY =
+  "warithep_learning_login_name";
+
+type LoginMember = {
+  id: string;
+  name: string;
+  position: string;
+  branch: string;
+  department: string;
+  auth_user_id: string;
+};
 
 export default function LoginPage() {
   const router = useRouter();
 
   const [name, setName] = useState("");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] =
+    useState("");
 
-  const [remember, setRemember] = useState(false);
+  const [remember, setRemember] =
+    useState(false);
+
   const [showPassword, setShowPassword] =
     useState(false);
 
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [error, setError] =
+    useState("");
 
-  /*
-  |--------------------------------------------------------------------------
-  | โหลดข้อมูลที่เคยจำไว้
-  |--------------------------------------------------------------------------
-  */
+  const [loading, setLoading] =
+    useState(false);
+
+  // =========================================================
+  // โหลดชื่อที่เคยจำไว้
+  // ไม่เก็บ password ใน LocalStorage
+  // =========================================================
 
   useEffect(() => {
-    try {
-      const savedRemember =
-        localStorage.getItem(REMEMBER_KEY);
+    const savedRemember =
+      localStorage.getItem(
+        REMEMBER_KEY
+      );
 
-      if (savedRemember === "true") {
-        const savedName =
-          localStorage.getItem(LOGIN_NAME_KEY);
+    const savedName =
+      localStorage.getItem(
+        LOGIN_NAME_KEY
+      );
 
-        const savedPassword =
-          localStorage.getItem(
-            LOGIN_PASSWORD_KEY
-          );
+    if (savedRemember === "true") {
+      setRemember(true);
 
-        if (savedName) {
-          setName(savedName);
-        }
-
-        if (savedPassword) {
-          setPassword(savedPassword);
-        }
-
-        setRemember(true);
+      if (savedName) {
+        setName(savedName);
       }
-    } catch {
-      // ป้องกัน localStorage error
     }
+
+    // ลบรหัสผ่านเก่าที่อาจเคยถูกเก็บไว้
+    localStorage.removeItem(
+      "warithep_learning_login_password"
+    );
   }, []);
 
-  /*
-  |--------------------------------------------------------------------------
-  | Login
-  |--------------------------------------------------------------------------
-  */
+  // =========================================================
+  // Login
+  // =========================================================
 
-  function handleLogin(
+  async function handleLogin(
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
 
     setError("");
 
-    if (!name.trim()) {
-      setError("กรุณากรอกชื่อ-นามสกุล");
+    const cleanName =
+      name.trim();
+
+    if (!cleanName) {
+      setError(
+        "กรุณากรอกชื่อ-นามสกุล"
+      );
       return;
     }
 
     if (!password) {
-      setError("กรุณากรอกรหัสผ่าน");
+      setError(
+        "กรุณากรอกรหัสผ่าน"
+      );
       return;
     }
 
     setLoading(true);
 
-    /*
-    |--------------------------------------------------------------------------
-    | จดจำชื่อ + รหัสผ่าน
-    |--------------------------------------------------------------------------
-    */
-
     try {
+      // =====================================================
+      // 1. ขอข้อมูลบัญชีจาก Server
+      //
+      // Browser ไม่อ่าน members โดยตรง
+      // เพราะ RLS ถูกล็อกแล้ว
+      // =====================================================
+
+      const response =
+        await fetch(
+          "/api/login",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              name: cleanName,
+            }),
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (
+        !response.ok ||
+        !result.success
+      ) {
+        throw new Error(
+          result.message ||
+            "ไม่พบสมาชิกชื่อนี้ในระบบ"
+        );
+      }
+
+      const member =
+        result.member as LoginMember;
+
+      const authEmail =
+        result.auth_email as string;
+
+      // =====================================================
+      // 2. Login ด้วย Supabase Auth
+      // =====================================================
+
+      const {
+        data: authData,
+        error: authError,
+      } =
+        await supabase.auth.signInWithPassword({
+          email: authEmail,
+          password,
+        });
+
+      if (authError) {
+        console.error(
+          "Supabase Auth Login Error:",
+          authError
+        );
+
+        throw new Error(
+          "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"
+        );
+      }
+
+      if (!authData.user) {
+        throw new Error(
+          "ไม่สามารถสร้าง Session ได้"
+        );
+      }
+
+      // =====================================================
+      // 3. ตรวจ Auth User ให้ตรงกับสมาชิก
+      // =====================================================
+
+      if (
+        authData.user.id !==
+        member.auth_user_id
+      ) {
+        console.error(
+          "AUTH USER MISMATCH",
+          {
+            authUser:
+              authData.user.id,
+            memberAuthUser:
+              member.auth_user_id,
+          }
+        );
+
+        await supabase.auth.signOut();
+
+        throw new Error(
+          "ข้อมูลบัญชีไม่ตรงกัน กรุณาติดต่อผู้ดูแลระบบ"
+        );
+      }
+
+      // =====================================================
+      // 4. จดจำชื่อเท่านั้น
+      // =====================================================
+
       if (remember) {
         localStorage.setItem(
           REMEMBER_KEY,
@@ -101,12 +212,7 @@ export default function LoginPage() {
 
         localStorage.setItem(
           LOGIN_NAME_KEY,
-          name.trim()
-        );
-
-        localStorage.setItem(
-          LOGIN_PASSWORD_KEY,
-          password
+          member.name
         );
       } else {
         localStorage.removeItem(
@@ -116,73 +222,63 @@ export default function LoginPage() {
         localStorage.removeItem(
           LOGIN_NAME_KEY
         );
-
-        localStorage.removeItem(
-          LOGIN_PASSWORD_KEY
-        );
       }
-    } catch {
-      // ป้องกัน localStorage error
-    }
 
-    /*
-    |--------------------------------------------------------------------------
-    | ตรวจสมาชิกที่เคยสมัครไว้
-    |--------------------------------------------------------------------------
-    */
+      // =====================================================
+      // 5. เก็บข้อมูลสมาชิกสำหรับ UI
+      //
+      // ไม่มี password
+      // =====================================================
 
-    const savedMember =
-      localStorage.getItem(
-        "warithep_learning_member"
+      const memberSession = {
+        id: member.id,
+        name: member.name,
+        position: member.position,
+        branch: member.branch,
+        department: member.department,
+        auth_user_id:
+          member.auth_user_id,
+      };
+
+      localStorage.setItem(
+        "warithep_learning_member",
+        JSON.stringify(
+          memberSession
+        )
       );
 
-    if (savedMember) {
-      try {
-        const member = JSON.parse(savedMember);
+      localStorage.setItem(
+        "warithep_learning_member_id",
+        member.id
+      );
 
-        if (
-          member.name &&
-          member.name.trim() !== name.trim()
-        ) {
-          setError(
-            "ชื่อ-นามสกุลไม่ตรงกับบัญชีที่สมัครไว้"
-          );
+      localStorage.setItem(
+        "warithep_learning_login_name",
+        member.name
+      );
 
-          setLoading(false);
-          return;
-        }
-      } catch {
-        // ข้อมูลเดิมอ่านไม่ได้
-      }
+      // =====================================================
+      // 6. เข้า Dashboard
+      // =====================================================
+
+      router.replace("/dashboard");
+    } catch (err) {
+      console.error(
+        "LOGIN ERROR:",
+        err
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
+      );
+
+      // ป้องกัน Auth session ค้างกรณี Login ไม่สำเร็จ
+      await supabase.auth.signOut();
+    } finally {
+      setLoading(false);
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | เข้าสู่ระบบ
-    |--------------------------------------------------------------------------
-    */
-
-    window.setTimeout(() => {
-      router.push("/dashboard");
-    }, 300);
-  }
-
-  /*
-  |--------------------------------------------------------------------------
-  | ล้างข้อมูลที่จำไว้
-  |--------------------------------------------------------------------------
-  */
-
-  function clearRememberedLogin() {
-    localStorage.removeItem(REMEMBER_KEY);
-    localStorage.removeItem(LOGIN_NAME_KEY);
-    localStorage.removeItem(
-      LOGIN_PASSWORD_KEY
-    );
-
-    setName("");
-    setPassword("");
-    setRemember(false);
   }
 
   return (
@@ -200,11 +296,13 @@ export default function LoginPage() {
             href="/"
             className="flex items-center gap-3"
           >
+
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-2xl shadow-md shadow-blue-200">
               🎓
             </div>
 
             <div>
+
               <div className="font-black text-slate-900">
                 วารีเทพ
               </div>
@@ -212,7 +310,9 @@ export default function LoginPage() {
               <div className="text-xs font-bold tracking-widest text-blue-600">
                 LEARNING
               </div>
+
             </div>
+
           </Link>
 
           <Link
@@ -234,9 +334,7 @@ export default function LoginPage() {
 
         <div className="w-full max-w-md">
 
-          {/* ================================================= */}
           {/* TITLE */}
-          {/* ================================================= */}
 
           <div className="mb-8 text-center">
 
@@ -258,9 +356,7 @@ export default function LoginPage() {
 
           </div>
 
-          {/* ================================================= */}
           {/* CARD */}
-          {/* ================================================= */}
 
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/50 md:p-8">
 
@@ -269,9 +365,7 @@ export default function LoginPage() {
               className="space-y-5"
             >
 
-              {/* ================================================= */}
               {/* NAME */}
-              {/* ================================================= */}
 
               <div>
 
@@ -283,18 +377,19 @@ export default function LoginPage() {
                   type="text"
                   value={name}
                   onChange={(e) =>
-                    setName(e.target.value)
+                    setName(
+                      e.target.value
+                    )
                   }
                   placeholder="กรอกชื่อ-นามสกุล"
                   autoComplete="name"
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+                  disabled={loading}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-100"
                 />
 
               </div>
 
-              {/* ================================================= */}
               {/* PASSWORD */}
-              {/* ================================================= */}
 
               <div>
 
@@ -318,7 +413,8 @@ export default function LoginPage() {
                     }
                     placeholder="กรอกรหัสผ่าน"
                     autoComplete="current-password"
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 pr-14 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
+                    disabled={loading}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 pr-14 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-100"
                   />
 
                   <button
@@ -328,7 +424,8 @@ export default function LoginPage() {
                         !showPassword
                       )
                     }
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-xl p-2 text-lg transition hover:bg-slate-100"
+                    disabled={loading}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-lg disabled:opacity-50"
                     aria-label={
                       showPassword
                         ? "ซ่อนรหัสผ่าน"
@@ -344,61 +441,29 @@ export default function LoginPage() {
 
               </div>
 
-              {/* ================================================= */}
-              {/* REMEMBER PASSWORD */}
-              {/* ================================================= */}
+              {/* REMEMBER NAME */}
 
-              <div className="rounded-2xl border-2 border-blue-100 bg-blue-50 px-4 py-4">
+              <label className="flex cursor-pointer select-none items-center gap-3">
 
-                <label className="flex cursor-pointer items-center gap-3 select-none">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) =>
+                    setRemember(
+                      e.target.checked
+                    )
+                  }
+                  disabled={loading}
+                  className="h-5 w-5 cursor-pointer rounded border-slate-300 text-blue-600 accent-blue-600"
+                />
 
-                  <input
-                    type="checkbox"
-                    checked={remember}
-                    onChange={(e) =>
-                      setRemember(
-                        e.target.checked
-                      )
-                    }
-                    className="h-6 w-6 shrink-0 cursor-pointer accent-blue-600"
-                  />
+                <span className="text-sm font-semibold text-slate-600">
+                  จดจำชื่อของฉัน
+                </span>
 
-                  <div className="flex-1">
+              </label>
 
-                    <div className="text-sm font-black text-slate-800">
-                      จดจำรหัสผ่าน
-                    </div>
-
-                    <div className="mt-0.5 text-xs font-medium text-slate-500">
-                      ครั้งต่อไปไม่ต้องกรอกรหัสผ่านใหม่
-                    </div>
-
-                  </div>
-
-                </label>
-
-              </div>
-
-              {/* ================================================= */}
-              {/* CLEAR REMEMBERED LOGIN */}
-              {/* ================================================= */}
-
-              {remember &&
-                (name || password) && (
-                  <button
-                    type="button"
-                    onClick={
-                      clearRememberedLogin
-                    }
-                    className="w-full text-center text-xs font-bold text-slate-400 transition hover:text-red-500"
-                  >
-                    ล้างข้อมูลที่จำไว้
-                  </button>
-                )}
-
-              {/* ================================================= */}
               {/* ERROR */}
-              {/* ================================================= */}
 
               {error && (
                 <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
@@ -406,9 +471,7 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {/* ================================================= */}
               {/* LOGIN BUTTON */}
-              {/* ================================================= */}
 
               <button
                 type="submit"
@@ -416,15 +479,13 @@ export default function LoginPage() {
                 className="w-full rounded-2xl bg-blue-600 px-5 py-4 font-black text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading
-                  ? "กำลังเข้าสู่ระบบ..."
+                  ? "กำลังตรวจสอบบัญชี..."
                   : "เข้าสู่ระบบ →"}
               </button>
 
             </form>
 
-            {/* ================================================= */}
             {/* REGISTER */}
-            {/* ================================================= */}
 
             <div className="mt-7 border-t border-slate-100 pt-6 text-center">
 
@@ -443,20 +504,18 @@ export default function LoginPage() {
 
           </div>
 
-          {/* ================================================= */}
-          {/* TEST MODE */}
-          {/* ================================================= */}
+          {/* SECURITY INFO */}
 
           <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-center">
 
             <p className="text-xs font-bold text-blue-700">
-              ℹ️ ระบบทดสอบ
+              🔐 ระบบเข้าสู่ระบบปลอดภัย
             </p>
 
             <p className="mt-1 text-xs leading-5 text-blue-600">
-              ขณะนี้ระบบกำลังใช้ระบบเข้าสู่ระบบทดสอบ
+              บัญชีของคุณได้รับการยืนยันผ่าน
               <br />
-              การตรวจสอบสมาชิกจริงจะเชื่อมกับ Supabase
+              ระบบรักษาความปลอดภัยของ Supabase
             </p>
 
           </div>

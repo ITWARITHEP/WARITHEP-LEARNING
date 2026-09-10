@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type ExamResult = {
@@ -14,30 +15,29 @@ type ExamResult = {
 };
 
 export default function DashboardPage() {
+  const router = useRouter();
+
   // =========================================================
   // หลักสูตร = วิดีโอ
   // =========================================================
 
   const [courseCount, setCourseCount] = useState(0);
-
   const [videoCount, setVideoCount] = useState(0);
 
   // =========================================================
   // วิดีโอที่เรียนจบแล้ว
   // =========================================================
 
-  const [completedCount, setCompletedCount] =
-    useState(0);
+  const [completedCount, setCompletedCount] = useState(0);
 
   // =========================================================
   // คะแนนสะสมจากแบบทดสอบ
   // =========================================================
 
-  const [totalScore, setTotalScore] =
-    useState(0);
+  const [totalScore, setTotalScore] = useState(0);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -50,12 +50,54 @@ export default function DashboardPage() {
   }, []);
 
   // =========================================================
+  // ออกจากระบบ
+  // =========================================================
+
+  async function handleLogout() {
+    if (loggingOut) return;
+
+    try {
+      setLoggingOut(true);
+
+      // ออกจาก Supabase Auth
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        console.error("Logout Error:", error);
+      }
+    } catch (error) {
+      console.error("Logout Error:", error);
+    } finally {
+      // ล้างข้อมูลสมาชิกที่เก็บไว้ในเครื่อง
+      const sessionKeys = [
+        "warithep_learning_member",
+        "warithep_learning_member_id",
+        "warithep_learning_user",
+        "warithep_learning_login_name",
+        "warithep_learning_login_password",
+        "warithep_member_id",
+        "member_id",
+        "current_member_id",
+        "current_member",
+        "currentMember",
+        "member",
+        "user",
+      ];
+
+      sessionKeys.forEach((key) => {
+        localStorage.removeItem(key);
+      });
+
+      // กลับหน้า Login
+      router.replace("/login");
+    }
+  }
+
+  // =========================================================
   // หา Member ID ปัจจุบัน
   // =========================================================
 
-  async function getCurrentMemberId(): Promise<
-    string | null
-  > {
+  async function getCurrentMemberId(): Promise<string | null> {
     try {
       // -------------------------------------------------------
       // 1. Member ID ที่ Login เก็บไว้
@@ -69,17 +111,15 @@ export default function DashboardPage() {
       ];
 
       for (const key of memberIdKeys) {
-        const storedId =
-          localStorage.getItem(key)?.trim();
+        const storedId = localStorage.getItem(key)?.trim();
 
         if (!storedId) continue;
 
-        const { data, error } =
-          await supabase
-            .from("members")
-            .select("id")
-            .eq("id", storedId)
-            .maybeSingle();
+        const { data, error } = await supabase
+          .from("members")
+          .select("id")
+          .eq("id", storedId)
+          .maybeSingle();
 
         if (!error && data?.id) {
           return data.id;
@@ -100,34 +140,21 @@ export default function DashboardPage() {
       ];
 
       for (const key of objectKeys) {
-        const stored =
-          localStorage.getItem(key);
+        const stored = localStorage.getItem(key);
 
         if (!stored) continue;
 
         try {
-          const parsed =
-            JSON.parse(stored);
+          const parsed = JSON.parse(stored);
 
-          if (
-            parsed &&
-            typeof parsed === "object"
-          ) {
-            const value =
-              parsed as Record<
-                string,
-                unknown
-              >;
+          if (parsed && typeof parsed === "object") {
+            const value = parsed as Record<string, unknown>;
 
             // มี ID
             if (value.id) {
-              const id =
-                String(value.id);
+              const id = String(value.id);
 
-              const {
-                data,
-                error,
-              } = await supabase
+              const { data, error } = await supabase
                 .from("members")
                 .select("id")
                 .eq("id", id)
@@ -144,18 +171,14 @@ export default function DashboardPage() {
             }
 
             // มีชื่อ
-            const name =
-              String(
-                value.name ||
-                  value.member_name ||
-                  ""
-              ).trim();
+            const name = String(
+              value.name ||
+                value.member_name ||
+                ""
+            ).trim();
 
             if (name) {
-              const {
-                data,
-                error,
-              } = await supabase
+              const { data, error } = await supabase
                 .from("members")
                 .select("id")
                 .eq("name", name)
@@ -185,18 +208,12 @@ export default function DashboardPage() {
       // 3. Login Name
       // -------------------------------------------------------
 
-      const loginName =
-        localStorage
-          .getItem(
-            "warithep_learning_login_name"
-          )
-          ?.trim();
+      const loginName = localStorage
+        .getItem("warithep_learning_login_name")
+        ?.trim();
 
       if (loginName) {
-        const {
-          data,
-          error,
-        } = await supabase
+        const { data, error } = await supabase
           .from("members")
           .select("id")
           .eq("name", loginName)
@@ -253,11 +270,9 @@ export default function DashboardPage() {
         );
       }
 
-      const publishedVideos =
-        videosData || [];
+      const publishedVideos = videosData || [];
 
-      const totalVideos =
-        publishedVideos.length;
+      const totalVideos = publishedVideos.length;
 
       // วิดีโอทั้งหมด
       setVideoCount(totalVideos);
@@ -269,13 +284,10 @@ export default function DashboardPage() {
       // หา Member ปัจจุบัน
       // =====================================================
 
-      const memberId =
-        await getCurrentMemberId();
+      const memberId = await getCurrentMemberId();
 
       if (!memberId) {
-        console.warn(
-          "ไม่พบสมาชิกปัจจุบัน"
-        );
+        console.warn("ไม่พบสมาชิกปัจจุบัน");
 
         setCompletedCount(0);
         setTotalScore(0);
@@ -287,10 +299,9 @@ export default function DashboardPage() {
       // เรียนจบแล้ว
       // =====================================================
 
-      const videoIds =
-        publishedVideos.map(
-          (video) => video.id
-        );
+      const videoIds = publishedVideos.map(
+        (video) => video.id
+      );
 
       if (videoIds.length > 0) {
         const {
@@ -302,10 +313,7 @@ export default function DashboardPage() {
             "video_id,completed,progress_percent"
           )
           .eq("member_id", memberId)
-          .in(
-            "video_id",
-            videoIds
-          );
+          .in("video_id", videoIds);
 
         if (progressError) {
           console.error(
@@ -320,18 +328,15 @@ export default function DashboardPage() {
               (item) =>
                 item.completed === true ||
                 Number(
-                  item.progress_percent ||
-                    0
+                  item.progress_percent || 0
                 ) >= 100
             );
 
-          const uniqueCompletedIds =
-            new Set(
-              completedVideos.map(
-                (item) =>
-                  item.video_id
-              )
-            );
+          const uniqueCompletedIds = new Set(
+            completedVideos.map(
+              (item) => item.video_id
+            )
+          );
 
           setCompletedCount(
             uniqueCompletedIds.size
@@ -378,64 +383,40 @@ export default function DashboardPage() {
           ExamResult
         > = {};
 
-        (resultData || []).forEach(
-          (result) => {
-            if (
-              !latestResults[
-                result.exam_id
-              ]
-            ) {
-              latestResults[
-                result.exam_id
-              ] = {
-                exam_id:
-                  result.exam_id,
-                score:
-                  Number(
-                    result.score || 0
-                  ),
-                total_score:
-                  Number(
-                    result.total_score ||
-                      0
-                  ),
-                percent:
-                  Number(
-                    result.percent || 0
-                  ),
-                passed:
-                  result.passed === true,
-                created_at:
-                  result.created_at,
-              };
-            }
+        (resultData || []).forEach((result) => {
+          if (!latestResults[result.exam_id]) {
+            latestResults[result.exam_id] = {
+              exam_id: result.exam_id,
+              score: Number(result.score || 0),
+              total_score: Number(
+                result.total_score || 0
+              ),
+              percent: Number(
+                result.percent || 0
+              ),
+              passed: result.passed === true,
+              created_at: result.created_at,
+            };
           }
-        );
+        });
 
         // ---------------------------------------------------
         // รวมคะแนนเฉพาะแบบทดสอบที่ผ่าน
         // ---------------------------------------------------
 
-        const accumulatedScore =
-          Object.values(
-            latestResults
+        const accumulatedScore = Object.values(
+          latestResults
+        )
+          .filter(
+            (result) => result.passed === true
           )
-            .filter(
-              (result) =>
-                result.passed === true
-            )
-            .reduce(
-              (sum, result) =>
-                sum +
-                Number(
-                  result.score || 0
-                ),
-              0
-            );
+          .reduce(
+            (sum, result) =>
+              sum + Number(result.score || 0),
+            0
+          );
 
-        setTotalScore(
-          accumulatedScore
-        );
+        setTotalScore(accumulatedScore);
       }
     } catch (error) {
       console.error(
@@ -491,7 +472,7 @@ export default function DashboardPage() {
 
             {/* NAVIGATION */}
 
-            <nav className="flex items-center gap-1.5 sm:gap-3 md:gap-6">
+            <nav className="flex items-center gap-1.5 sm:gap-3 md:gap-4">
 
               <Link
                 href="/knowledge"
@@ -513,6 +494,25 @@ export default function DashboardPage() {
               >
                 👤
               </Link>
+
+              {/* LOGOUT */}
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="flex h-9 items-center gap-1.5 rounded-xl border border-red-100 bg-red-50 px-3 text-xs font-bold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 sm:h-10 sm:px-4 sm:text-sm"
+              >
+                <span>
+                  {loggingOut ? "⏳" : "🚪"}
+                </span>
+
+                <span className="hidden sm:inline">
+                  {loggingOut
+                    ? "กำลังออกจากระบบ..."
+                    : "ออกจากระบบ"}
+                </span>
+              </button>
 
             </nav>
 
@@ -616,9 +616,7 @@ export default function DashboardPage() {
             <div className="mt-4 sm:mt-5">
 
               <div className="text-2xl font-black text-slate-950 sm:text-3xl md:text-4xl">
-                {loading
-                  ? "—"
-                  : courseCount}
+                {loading ? "—" : courseCount}
               </div>
 
               <div className="mt-1 text-xs font-semibold text-slate-500 sm:text-sm">
@@ -648,9 +646,7 @@ export default function DashboardPage() {
             <div className="mt-4 sm:mt-5">
 
               <div className="text-2xl font-black text-slate-950 sm:text-3xl md:text-4xl">
-                {loading
-                  ? "—"
-                  : videoCount}
+                {loading ? "—" : videoCount}
               </div>
 
               <div className="mt-1 text-xs font-semibold text-slate-500 sm:text-sm">
@@ -680,9 +676,7 @@ export default function DashboardPage() {
             <div className="mt-4 sm:mt-5">
 
               <div className="text-2xl font-black text-slate-950 sm:text-3xl md:text-4xl">
-                {loading
-                  ? "—"
-                  : completedCount}
+                {loading ? "—" : completedCount}
               </div>
 
               <div className="mt-1 text-xs font-semibold text-slate-500 sm:text-sm">
@@ -712,9 +706,7 @@ export default function DashboardPage() {
             <div className="mt-4 sm:mt-5">
 
               <div className="text-2xl font-black text-slate-950 sm:text-3xl md:text-4xl">
-                {loading
-                  ? "—"
-                  : totalScore}
+                {loading ? "—" : totalScore}
               </div>
 
               <div className="mt-1 text-xs font-semibold text-slate-500 sm:text-sm">
