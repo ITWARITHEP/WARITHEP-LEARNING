@@ -1,7 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { supabase } from "@/lib/supabase";
 
 type Exam = {
@@ -93,6 +99,30 @@ export default function ExamsPage() {
 
   const [examResults, setExamResults] =
     useState<Record<string, ExamResult>>({});
+
+  // =========================================================
+  // ตัวเลื่อนฝ่าย / กลุ่มอบรม
+  // =========================================================
+
+  const departmentSliderRef =
+    useRef<HTMLDivElement | null>(null);
+
+  const trainingSliderRef =
+    useRef<HTMLDivElement | null>(null);
+
+  function scrollSlider(
+    ref: { current: HTMLDivElement | null },
+    direction: "left" | "right"
+  ) {
+    const element = ref.current;
+
+    if (!element) return;
+
+    element.scrollBy({
+      left: direction === "right" ? 500 : -500,
+      behavior: "smooth",
+    });
+  }
 
   // =========================================================
   // หา Member ปัจจุบัน
@@ -765,133 +795,188 @@ export default function ExamsPage() {
       </section>
 
       {/* ===================================================== */}
-      {/* FILTER */}
+      {/* FILTER SLIDER */}
       {/* ===================================================== */}
 
       <section className="mx-auto max-w-[1500px] px-4 pt-4 sm:px-5 sm:pt-5 md:px-8">
 
-        {examMode === "department" ? (
+        <div className="relative">
 
-          <div
-            className="scrollbar-hide flex touch-pan-x gap-2 overflow-x-auto pb-3"
-            onWheel={(e) => {
-              if (
-                Math.abs(e.deltaY) >
-                Math.abs(e.deltaX)
-              ) {
-                e.currentTarget.scrollLeft +=
-                  e.deltaY;
-              }
-            }}
+          {/* LEFT BUTTON */}
+
+          <button
+            type="button"
+            onClick={() =>
+              scrollSlider(
+                examMode === "department"
+                  ? departmentSliderRef
+                  : trainingSliderRef,
+                "left"
+              )
+            }
+            className="absolute left-0 top-1/2 z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-xl font-black text-slate-700 shadow-lg transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 md:flex"
+            aria-label="เลื่อนไปทางซ้าย"
           >
+            ‹
+          </button>
 
-            {departments.map(
-              (department) => {
+          {/* RIGHT BUTTON */}
 
-                const active =
-                  selectedDepartment ===
-                  department;
-
-                return (
-                  <button
-                    key={department}
-                    type="button"
-                    onClick={() =>
-                      setSelectedDepartment(
-                        department
-                      )
-                    }
-                    className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[10px] font-bold transition-all sm:px-4 sm:py-2.5 sm:text-xs ${
-                      active
-                        ? "bg-blue-600 text-white shadow-md"
-                        : "border border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-blue-600"
-                    }`}
-                  >
-
-                    {department !==
-                      "ทั้งหมด" && (
-                      <span className="mr-1">
-                        {
-                          departmentIcons[
-                            department
-                          ]
-                        }
-                      </span>
-                    )}
-
-                    {department}
-
-                  </button>
-                );
-              }
-            )}
-
-          </div>
-
-        ) : (
-
-          <div
-            className="scrollbar-hide flex touch-pan-x gap-2 overflow-x-auto pb-3"
-            onWheel={(e) => {
-              if (
-                Math.abs(e.deltaY) >
-                Math.abs(e.deltaX)
-              ) {
-                e.currentTarget.scrollLeft +=
-                  e.deltaY;
-              }
-            }}
+          <button
+            type="button"
+            onClick={() =>
+              scrollSlider(
+                examMode === "department"
+                  ? departmentSliderRef
+                  : trainingSliderRef,
+                "right"
+              )
+            }
+            className="absolute right-0 top-1/2 z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-xl font-black text-slate-700 shadow-lg transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 md:flex"
+            aria-label="เลื่อนไปทางขวา"
           >
+            ›
+          </button>
 
-            {trainingGroups.map(
-              (group) => {
+          {/* ================================================= */}
+          {/* DEPARTMENT FILTER */}
+          {/* ================================================= */}
 
-                const active =
-                  selectedTrainingGroup ===
-                  group;
+          {examMode === "department" ? (
 
-                return (
-                  <button
-                    key={group}
-                    type="button"
-                    onClick={() =>
-                      setSelectedTrainingGroup(
-                        group
-                      )
-                    }
-                    className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[10px] font-bold transition-all sm:px-4 sm:py-2.5 sm:text-xs ${
-                      active
-                        ? "bg-blue-600 text-white shadow-md"
-                        : "border border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-blue-600"
-                    }`}
-                  >
+            <div
+              ref={departmentSliderRef}
+              className="scrollbar-hide flex touch-pan-x gap-2 overflow-x-auto scroll-smooth px-0 py-2 md:px-12"
+              onWheel={(e) => {
+                if (
+                  Math.abs(e.deltaY) >
+                  Math.abs(e.deltaX)
+                ) {
+                  e.currentTarget.scrollLeft +=
+                    e.deltaY;
+                }
+              }}
+            >
 
-                    {group !==
-                      "ทั้งหมด" && (
-                      <span className="mr-1">
-                        {group ===
-                        "ฝ่ายวิศวกรรม"
-                          ? "⚙️"
+              {departments.map(
+                (department) => {
+
+                  const active =
+                    selectedDepartment ===
+                    department;
+
+                  return (
+                    <button
+                      key={department}
+                      type="button"
+                      onClick={() =>
+                        setSelectedDepartment(
+                          department
+                        )
+                      }
+                      className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[10px] font-bold transition-all sm:px-4 sm:py-2.5 sm:text-xs ${
+                        active
+                          ? "bg-blue-600 text-white shadow-md shadow-blue-200"
+                          : "border border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
+                      }`}
+                    >
+
+                      {department !==
+                        "ทั้งหมด" && (
+                        <span className="mr-1">
+                          {
+                            departmentIcons[
+                              department
+                            ]
+                          }
+                        </span>
+                      )}
+
+                      {department}
+
+                    </button>
+                  );
+                }
+              )}
+
+            </div>
+
+          ) : (
+
+            /* ================================================= */
+            /* TRAINING FILTER */
+            /* ================================================= */
+
+            <div
+              ref={trainingSliderRef}
+              className="scrollbar-hide flex touch-pan-x gap-2 overflow-x-auto scroll-smooth px-0 py-2 md:px-12"
+              onWheel={(e) => {
+                if (
+                  Math.abs(e.deltaY) >
+                  Math.abs(e.deltaX)
+                ) {
+                  e.currentTarget.scrollLeft +=
+                    e.deltaY;
+                }
+              }}
+            >
+
+              {trainingGroups.map(
+                (group) => {
+
+                  const active =
+                    selectedTrainingGroup ===
+                    group;
+
+                  const icon =
+                    group ===
+                      "ฝ่ายวิศวกรรม"
+                      ? "⚙️"
+                      : group ===
+                        "เจ้าหน้าที่สำนักงาน"
+                        ? "🏢"
+                        : group ===
+                          "ผู้บริหารพนักงานปฏิบัติการฝ่ายขายและการตลาด"
+                          ? "👔"
                           : group ===
-                            "เจ้าหน้าที่สำนักงาน"
-                            ? "🏢"
-                            : group ===
-                              "ผู้บริหารพนักงานปฏิบัติการฝ่ายขายและการตลาด"
-                              ? "👔"
-                              : "👤"}
-                      </span>
-                    )}
+                            "ทั้งหมด"
+                            ? ""
+                            : "👤";
 
-                    {group}
+                  return (
+                    <button
+                      key={group}
+                      type="button"
+                      onClick={() =>
+                        setSelectedTrainingGroup(
+                          group
+                        )
+                      }
+                      className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[10px] font-bold transition-all sm:px-4 sm:py-2.5 sm:text-xs ${
+                        active
+                          ? "bg-blue-600 text-white shadow-md shadow-blue-200"
+                          : "border border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
+                      }`}
+                    >
 
-                  </button>
-                );
-              }
-            )}
+                      {icon && (
+                        <span className="mr-1">
+                          {icon}
+                        </span>
+                      )}
 
-          </div>
+                      {group}
 
-        )}
+                    </button>
+                  );
+                }
+              )}
+
+            </div>
+
+          )}
+
+        </div>
 
       </section>
 
@@ -1040,9 +1125,7 @@ export default function ExamsPage() {
                     }`}
                   >
 
-                    {/* ===================================== */}
                     {/* CARD HEADER */}
-                    {/* ===================================== */}
 
                     <div
                       className={`relative h-[225px] overflow-hidden ${
@@ -1054,15 +1137,11 @@ export default function ExamsPage() {
                       }`}
                     >
 
-                      {/* BACKGROUND LIGHT */}
-
                       <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
 
                       <div className="pointer-events-none absolute -bottom-24 -left-20 h-52 w-52 rounded-full bg-black/10 blur-3xl" />
 
-                      {/* =================================== */}
                       {/* STATUS */}
-                      {/* =================================== */}
 
                       <div className="absolute left-4 top-4 z-20 sm:left-5 sm:top-5">
 
@@ -1089,9 +1168,7 @@ export default function ExamsPage() {
 
                       </div>
 
-                      {/* =================================== */}
                       {/* CATEGORY */}
-                      {/* =================================== */}
 
                       <div className="absolute right-3 top-3 z-20 max-w-[58%] sm:right-4 sm:top-4">
 
@@ -1105,16 +1182,11 @@ export default function ExamsPage() {
 
                       </div>
 
-                      {/* =================================== */}
                       {/* ICON */}
-                      {/* สำคัญ: แยกจาก TITLE ชัดเจน */}
-                      {/* =================================== */}
 
                       <div className="absolute left-4 top-[62px] z-10 sm:left-5 sm:top-[66px]">
 
-                        <div
-                          className={`flex h-12 w-12 items-center justify-center rounded-xl border border-white/25 bg-white/20 text-2xl shadow-sm backdrop-blur-sm sm:h-14 sm:w-14 sm:rounded-2xl sm:text-3xl`}
-                        >
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/25 bg-white/20 text-2xl shadow-sm backdrop-blur-sm sm:h-14 sm:w-14 sm:rounded-2xl sm:text-3xl">
 
                           {passed
                             ? "🏆"
@@ -1126,10 +1198,7 @@ export default function ExamsPage() {
 
                       </div>
 
-                      {/* =================================== */}
-                      {/* TITLE AREA */}
-                      {/* ไม่ให้ทับ ICON */}
-                      {/* =================================== */}
+                      {/* TITLE */}
 
                       <div className="absolute inset-x-0 bottom-0 z-10">
 
@@ -1161,9 +1230,7 @@ export default function ExamsPage() {
 
                     </div>
 
-                    {/* ===================================== */}
                     {/* BODY */}
-                    {/* ===================================== */}
 
                     <div className="p-4 sm:p-5">
 
@@ -1316,9 +1383,7 @@ export default function ExamsPage() {
 
                       </div>
 
-                      {/* =================================== */}
                       {/* BUTTON */}
-                      {/* =================================== */}
 
                       {passed ? (
 
