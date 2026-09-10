@@ -365,7 +365,7 @@ export default function KnowledgePage() {
                   </div>
 
                   <h1 className="mt-5 text-3xl font-black leading-tight text-white drop-shadow-lg md:text-5xl">
-                    วิดีโอ อบรมและบรรยาย
+                    ห้องแบ่งปันความรู้วารีเทพ
                   </h1>
 
                   <p className="mt-4 max-w-2xl text-sm leading-7 text-blue-100 md:text-base">
